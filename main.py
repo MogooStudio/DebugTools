@@ -1,9 +1,15 @@
 import sys
-from PyQt5.QtWidgets import QToolButton, QRadioButton, QGroupBox, QStackedLayout, QSizePolicy, QListWidgetItem, QListWidget, \
-    QWidget, QVBoxLayout, QHBoxLayout, QFileDialog, QAction, QApplication, QMainWindow, \
-    QMessageBox, QLabel, QLineEdit, QTextEdit, QPushButton, QDesktopWidget
-from PyQt5.QtCore import Qt, QCoreApplication, QSize
-from PyQt5.QtGui import QIcon, QColor
+
+from sql import SQLHelper
+from sql import info, error
+
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QTextEdit, QPushButton, QDialog, QToolButton, QRadioButton, QGroupBox, QStackedWidget, \
+    QSizePolicy, QListWidgetItem, \
+    QListWidget, \
+    QWidget, QVBoxLayout, QHBoxLayout, QApplication, QMainWindow, \
+    QMessageBox, QDesktopWidget
 
 ui_title = "Slots工具"
 ui_width = 1280
@@ -13,6 +19,53 @@ current_index = 0
 item_width = 150
 item_height = 80
 item_titles = ["调试工具", "底包管理", "热更新管理", "资源包管理"]
+
+# 自定义样式
+ui_Stylesheet = """
+    /*去掉item虚线边框*/
+    QListWidget, QListView, QTreeWidget, QTreeView {
+        outline: 0px;
+    }
+    /*设置左侧选项的最小最大宽度,文字颜色和背景颜色*/
+    QListWidget {
+        min-width: 120px;
+        max-width: 120px;
+        color: white;
+        background: rgb(120, 120, 120);
+    }
+    /*被选中时的背景颜色和左边框颜色*/
+    QListWidget::item:selected {
+        background: rgb(110, 110, 110);
+        border-left: 2px solid rgb(9, 187, 7);
+    }
+    /*鼠标悬停颜色*/
+    HistoryPanel::item:hover {
+        # background: rgb(52, 52, 52);
+    }
+    /*右侧的层叠窗口的背景颜色*/
+    QStackedWidget {
+        # background: rgb(30, 30, 30);
+    }
+    /*模拟的页面*/
+    QLabel {
+        # color: white;
+    }
+    """
+
+
+# 基础dialog
+class BaseDialog(QDialog):
+
+    def __init__(self, width, height, name="BaseDialog"):
+        super(BaseDialog, self).__init__()
+        self.name = name
+        self.width = width
+        self.height = height
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle(self.name)
+        self.resize(self.width, self.height)
 
 
 # 基础Item
@@ -66,6 +119,37 @@ class BaseView(QGroupBox):
         return self.name
 
 
+# 设置dialog
+class PathSettingItem(QGroupBox):
+
+    def __init__(self):
+        super(PathSettingItem, self).__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(QTextEdit())
+        self.layout.addWidget(QPushButton("按钮"))
+        self.setLayout(self.layout)
+
+
+# 路径设置dialog
+class PathSettingDialog(BaseDialog):
+
+    def __init__(self):
+        super(PathSettingDialog, self).__init__(800, 480, "设置")
+
+    def initUI(self):
+        super(PathSettingDialog, self).initUI()
+
+        mainLayout = QVBoxLayout()
+        for i in range(3):
+            item = PathSettingItem()
+            mainLayout.addWidget(item)
+
+        self.setLayout(mainLayout)
+
+
 # 左侧item控件
 class ToolsItem(BaseItem):
 
@@ -74,7 +158,6 @@ class ToolsItem(BaseItem):
 
     def initUI(self):
         super(ToolsItem, self).initUI()
-        self.setBackground(QColor(100, 100, 100, 100))
 
 
 # 右侧view控件
@@ -102,33 +185,39 @@ class DebugTools(QMainWindow):
         super(DebugTools, self).__init__()
         self.mainWidget = QWidget()
         self.mainLayout = QHBoxLayout()
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
         self.listWidget = QListWidget()
-        self.rightWidget = QWidget()
-        self.rightLayout = QStackedLayout(self.rightWidget)
+        self.mainLayout.addWidget(self.listWidget)
+        self.stackedWidget = QStackedWidget()
+        self.mainLayout.addWidget(self.stackedWidget)
         self.toolBar = self.addToolBar("")
+        self.toolBar.setMovable(False)
         self.initUI()
+        self.db = SQLHelper()
 
     def initUI(self):
         self.initToolBar()
 
-        # listview
-        self.listWidget.setSpacing(10)
+        # list widget
+        self.listWidget.setFrameShape(QListWidget.NoFrame)
+        self.listWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.listWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.listWidget.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding))
         self.listWidget.setMinimumSize(QSize(item_width, item_height))
-        self.listWidget.clicked.connect(self.onClickedItem)
-        self.mainLayout.addWidget(self.listWidget)
-
-        # right view
-        self.rightWidget.setLayout(self.rightLayout)
-        self.mainLayout.addWidget(self.rightWidget)
+        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
 
         index = 0
         for title in item_titles:
             item = ToolsItem(title)
             item.setSizeHint(QSize(item_width, item_height))
             self.listWidget.addItem(item)
+            index += 1
+
+        # stacked widget
+        index = 0
+        for title in item_titles:
             view = ToolsView(title)
-            self.rightLayout.addWidget(view)
+            self.stackedWidget.addWidget(view)
             index += 1
 
         # layout
@@ -138,11 +227,11 @@ class DebugTools(QMainWindow):
         self.setPosition()
         self.setWindowTitle(ui_title)
         self.show()
+        info("ui初始化成功")
 
     # 显示UI
     def showUI(self):
         self.listWidget.setCurrentRow(current_index)
-        self.changeView(current_index)
 
     def initToolBar(self):
         width = 64
@@ -154,21 +243,11 @@ class DebugTools(QMainWindow):
         btnSetting.clicked.connect(self.showSettingDialog)
         self.toolBar.addWidget(btnSetting)
 
-    # 切换右侧view
-    def changeView(self, index):
-        if index < self.rightLayout.count():
-            self.rightLayout.setCurrentIndex(index)
-            widget = self.rightLayout.currentWidget()
-            print(ToolsView(widget).name)
-            print("选择：{0}".format(item_titles[index]))
-
-    # 左侧item点击回调
-    def onClickedItem(self, data):
-        index = data.row()
-        self.changeView(index)
-
     def showSettingDialog(self):
         print("showSettingDialog")
+        settingDialog = PathSettingDialog()
+        settingDialog.exec_()
+
         # filename = QFileDialog.getOpenFileName(self, '打开文件', './')
         # if filename[0]:
         #     f = open(filename[0], 'r')
@@ -186,11 +265,16 @@ class DebugTools(QMainWindow):
 
     def closeUI(self, onerror):
         reply = QMessageBox.question(self, '消息框', "确定关闭程序？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        self.close() if reply == QMessageBox.Yes else onerror()
+        if reply == QMessageBox.Yes:
+            self.db.close()
+            self.close()
+        elif onerror:
+            onerror()
 
 
 def main():
     app = QApplication(sys.argv)
+    app.setStyleSheet(ui_Stylesheet)
     tools = DebugTools()
     tools.showUI()
     sys.exit(app.exec_())
