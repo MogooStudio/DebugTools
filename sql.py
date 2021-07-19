@@ -12,11 +12,11 @@ class SQLHelper:
         self.cursor = self.connect.cursor()
         info("数据库初始化成功")
 
-    """
+    '''
     创建表
-    @:table_name 表名
-    @:field 字段列表
-    """
+    :table_name 表名
+    :field 字段列表
+    '''
     def create_table(self, table_name, field):
         if not isinstance(field, dict):
             raise Exception("error: field 必须是字典")
@@ -29,11 +29,11 @@ class SQLHelper:
             error("数据库表创建失败 sql={0} ex={1}".format(sql, ex))
             return False
 
-    """
+    '''
     插入数据
-    @:table_name 表名
-    @:data 要插入的数据
-    """
+    :table_name 表名
+    :data 要插入的数据
+    '''
     def insert_data(self, table_name, data):
         if not isinstance(data, dict):
             raise Exception("error: data 必须是字典")
@@ -49,11 +49,11 @@ class SQLHelper:
         finally:
             self.connect.commit()
 
-    """
+    '''
     更新数据
-    @:table_name 表名
-    @:data 要更新的数据
-    """
+    :table_name 表名
+    :data 要更新的数据
+    '''
     def update_data(self, table_name, data, id):
         if not isinstance(data, dict):
             raise Exception("error: data 必须是字典")
@@ -65,16 +65,16 @@ class SQLHelper:
             sql = f"update {table_name} set {keys}={values} where id={id};"
             self.cursor.execute(sql)
             return True
-        except Exception as ex:
+        except BaseException as ex:
             error("数据更新失败 sql={0} ex={1}".format(sql, ex))
             return False
         finally:
             self.connect.commit()
 
-    """
+    '''
     查询表数据
-    @:table_name 表名
-    """
+    :table_name 表名
+    '''
     def query_data(self, table_name):
         try:
             sql = f"select * from {table_name};"
@@ -84,9 +84,9 @@ class SQLHelper:
             error("数据更新失败 sql={0} ex={1}".format(sql, ex))
             return []
 
-    """
+    '''
     关闭数据库
-    """
+    '''
     def close(self):
         self.cursor.close()
         self.connect.close()
