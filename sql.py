@@ -90,6 +90,7 @@ class SQLHelper:
     def close(self):
         self.cursor.close()
         self.connect.close()
+        info("数据库关闭")
 
 
 # db = SQLHelper()

@@ -5,20 +5,32 @@ from sql import info, error
 
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QTextEdit, QPushButton, QDialog, QToolButton, QRadioButton, QGroupBox, QStackedWidget, \
+from PyQt5.QtWidgets import QLabel, QTabWidget, QTextEdit, QPushButton, QDialog, QToolButton, QRadioButton, QGroupBox, \
+    QStackedWidget, \
     QSizePolicy, QListWidgetItem, \
     QListWidget, \
     QWidget, QVBoxLayout, QHBoxLayout, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget
+
+from ui import Ui_MainWindow
+from tabUI import Ui_tabForm
+
+debug = True
 
 ui_title = "Slots工具"
 ui_width = 1280
 ui_height = 720
 current_index = 0
 
+game_max_height = 100
+
 item_width = 150
 item_height = 80
 item_titles = ["调试工具", "底包管理", "热更新管理", "资源包管理"]
+
+content_min_height = ui_height - game_max_height
+
+game_group = ["game1", "game2", "game3"]
 
 # 自定义样式
 ui_Stylesheet = """
@@ -56,7 +68,7 @@ ui_Stylesheet = """
 # 基础dialog
 class BaseDialog(QDialog):
 
-    def __init__(self, width, height, name="BaseDialog"):
+    def __init__(self, width, height, name=""):
         super(BaseDialog, self).__init__()
         self.name = name
         self.width = width
@@ -71,9 +83,9 @@ class BaseDialog(QDialog):
 # 基础Item
 class BaseItem(QListWidgetItem):
 
-    def __init__(self, name="BaseItem"):
+    def __init__(self, index=0, name=""):
         super(BaseItem, self).__init__()
-        self.index = 0
+        self.index = index
         self.name = name
         self.initUI()
 
@@ -97,9 +109,9 @@ class BaseItem(QListWidgetItem):
 # 基础View
 class BaseView(QGroupBox):
 
-    def __init__(self, name="BaseView"):
+    def __init__(self, index=0, name=""):
         super(BaseView, self).__init__(name)
-        self.index = 0
+        self.index = index
         self.name = name
         self.initUI()
 
@@ -119,155 +131,166 @@ class BaseView(QGroupBox):
         return self.name
 
 
-# 设置dialog
-class PathSettingItem(QGroupBox):
+class ListItem(BaseItem):
 
-    def __init__(self):
-        super(PathSettingItem, self).__init__()
+    def __init__(self, index, name):
+        super(ListItem, self).__init__(index, name)
+
+
+class GameView(QWidget):
+
+    def __init__(self, index, name):
+        super(GameView, self).__init__()
         self.initUI()
 
     def initUI(self):
-        self.layout = QVBoxLayout(self)
-        self.layout.addWidget(QTextEdit())
-        self.layout.addWidget(QPushButton("按钮"))
-        self.setLayout(self.layout)
-
-
-# 路径设置dialog
-class PathSettingDialog(BaseDialog):
-
-    def __init__(self):
-        super(PathSettingDialog, self).__init__(800, 480, "设置")
-
-    def initUI(self):
-        super(PathSettingDialog, self).initUI()
-
         mainLayout = QVBoxLayout()
-        for i in range(3):
-            item = PathSettingItem()
-            mainLayout.addWidget(item)
 
+        labWidget = QWidget()
+        labWidget.setMinimumHeight(50)
+        btnWidget = QWidget()
+        btnWidget.setMinimumHeight(50)
+        mainLayout.addWidget(labWidget)
+        mainLayout.addWidget(btnWidget)
+
+        labTitle = QLabel()
+        labTitle.setMaximumWidth(100)
+        labTitle.setText("项目路径: ")
+        textEdit = QTextEdit()
+        textEdit.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        textEdit.setMaximumSize(QSize(500, 25))
+
+        labLayout = QHBoxLayout()
+        labLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        labLayout.addWidget(labTitle)
+        labLayout.addWidget(textEdit)
+
+        btnLayout = QHBoxLayout()
+        btnLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        for i in range(5):
+            btnLayout.addWidget(QPushButton("按钮"))
+
+        labWidget.setLayout(labLayout)
+        btnWidget.setLayout(btnLayout)
         self.setLayout(mainLayout)
 
 
-# 左侧item控件
-class ToolsItem(BaseItem):
+class ContentView(BaseView):
 
-    def __init__(self, name):
-        super(ToolsItem, self).__init__(name)
-
-    def initUI(self):
-        super(ToolsItem, self).initUI()
-
-
-# 右侧view控件
-class ToolsView(BaseView):
-
-    def __init__(self, name):
-        super(ToolsView, self).__init__(name)
+    def __init__(self, index):
+        super(ContentView, self).__init__(index)
 
     def initUI(self):
         radio1 = QRadioButton('&Radio Button 1')
         radio2 = QRadioButton('R&adio button 2')
         radio3 = QRadioButton('Ra&dio button 3')
 
-        self.layout = QVBoxLayout(self)
-        self.layout.addWidget(radio1)
-        self.layout.addWidget(radio2)
-        self.layout.addWidget(radio3)
-        self.layout.addStretch(1)
-        self.setLayout(self.layout)
+        mainLayout = QVBoxLayout(self)
+        mainLayout.addWidget(radio1)
+        mainLayout.addWidget(radio2)
+        mainLayout.addWidget(radio3)
+        mainLayout.addStretch(1)
+        self.setLayout(mainLayout)
 
 
-class DebugTools(QMainWindow):
+class TabView(QWidget, Ui_tabForm):
+
+    def __init__(self):
+        super(TabView, self).__init__()
+        self.setupUi(self)
+
+
+class DebugTools(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super(DebugTools, self).__init__()
-        self.mainWidget = QWidget()
-        self.mainLayout = QHBoxLayout()
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
-        self.listWidget = QListWidget()
-        self.mainLayout.addWidget(self.listWidget)
-        self.stackedWidget = QStackedWidget()
-        self.mainLayout.addWidget(self.stackedWidget)
-        self.toolBar = self.addToolBar("")
-        self.toolBar.setMovable(False)
+        self.setupUi(self)
         self.initUI()
         self.db = SQLHelper()
 
     def initUI(self):
-        self.initToolBar()
-
-        # list widget
-        self.listWidget.setFrameShape(QListWidget.NoFrame)
-        self.listWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.listWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.listWidget.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding))
-        self.listWidget.setMinimumSize(QSize(item_width, item_height))
-        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
 
         index = 0
-        for title in item_titles:
-            item = ToolsItem(title)
-            item.setSizeHint(QSize(item_width, item_height))
-            self.listWidget.addItem(item)
+        for name in game_group:
+            self.tabWidget.addTab(TabView(), name)
             index += 1
 
-        # stacked widget
-        index = 0
-        for title in item_titles:
-            view = ToolsView(title)
-            self.stackedWidget.addWidget(view)
-            index += 1
-
-        # layout
-        self.mainWidget.setLayout(self.mainLayout)
-        self.setCentralWidget(self.mainWidget)
         self.resize(ui_width, ui_height)
         self.setPosition()
         self.setWindowTitle(ui_title)
-        self.show()
         info("ui初始化成功")
 
-    # 显示UI
-    def showUI(self):
-        self.listWidget.setCurrentRow(current_index)
+    # 添加tab
+    def createTab(self, index):
+        if index < 0 or index >= len(game_group):
+            raise Exception("createTab: index > 0 and index < len(game_group)")
 
-    def initToolBar(self):
-        width = 64
-        btnSetting = QToolButton(self)
-        btnSetting.setText('设置')
-        btnSetting.setMinimumWidth(width)
-        btnSetting.setIcon(QIcon('exit.png'))
-        btnSetting.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        btnSetting.clicked.connect(self.showSettingDialog)
-        self.toolBar.addWidget(btnSetting)
+        mainWidget = QWidget()
+        mainLayout = QVBoxLayout()
+        mainLayout.setContentsMargins(0, 0, 0, 0)
 
-    def showSettingDialog(self):
-        print("showSettingDialog")
-        settingDialog = PathSettingDialog()
-        settingDialog.exec_()
+        # 上下 layout
+        gameView = GameView(index, game_group[index])
+        gameView.setMaximumHeight(game_max_height)
+        secondWidget = QWidget()
+        secondWidget.setMinimumSize(QSize(ui_width, content_min_height))
+        mainLayout.addWidget(gameView)
+        mainLayout.addWidget(secondWidget)
 
-        # filename = QFileDialog.getOpenFileName(self, '打开文件', './')
-        # if filename[0]:
-        #     f = open(filename[0], 'r')
-        #     with f:
-        #         data = f.read()
-        #         print(data)
+        # 左右 layout
+        secondLayout = QHBoxLayout()
+        secondWidget.setLayout(secondLayout)
+
+        listWidget = QListWidget()
+        stackedWidget = QStackedWidget()
+        secondLayout.addWidget(listWidget)
+        secondLayout.addWidget(stackedWidget)
+
+        # list widget
+        listWidget.setFrameShape(QListWidget.NoFrame)
+        listWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        listWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        listWidget.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding))
+        listWidget.setMinimumSize(QSize(item_width, item_height))
+        listWidget.currentRowChanged.connect(stackedWidget.setCurrentIndex)
+
+        index = 0
+        for title in item_titles:
+            item = ListItem(index, title)
+            item.setSizeHint(QSize(item_width, item_height))
+            listWidget.addItem(item)
+            index += 1
+
+        # stack widget
+        index = 0
+        for _ in item_titles:
+            view = ContentView(index)
+            stackedWidget.addWidget(view)
+            index += 1
+
+        listWidget.setCurrentRow(0)
+        mainWidget.setLayout(mainLayout)
+        return mainWidget
 
     def setPosition(self):
         frame = self.frameGeometry()
         frame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(frame.topLeft())
 
+    def destroy(self):
+        self.db.close()
+        self.close()
+
     def closeEvent(self, event):
-        self.closeUI(lambda: event.ignore())
+        if debug:
+            self.destroy()
+        else:
+            self.closeUI(lambda: event.ignore())
 
     def closeUI(self, onerror):
         reply = QMessageBox.question(self, '消息框', "确定关闭程序？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
-            self.db.close()
-            self.close()
+            self.destroy()
         elif onerror:
             onerror()
 
@@ -276,7 +299,7 @@ def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(ui_Stylesheet)
     tools = DebugTools()
-    tools.showUI()
+    tools.show()
     sys.exit(app.exec_())
 
 
