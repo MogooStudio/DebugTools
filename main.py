@@ -14,10 +14,12 @@ from PyQt5.QtWidgets import QLabel, QTabWidget, QTextEdit, QPushButton, QDialog,
 
 from ui import Ui_MainWindow
 from tabUI import Ui_tabForm
+from contentBox import Ui_ContentBox
+from debugBox import  Ui_debugBox
 
 debug = True
 
-ui_title = "Slots工具"
+ui_title = "调试工具"
 ui_width = 1280
 ui_height = 720
 current_index = 0
@@ -26,35 +28,31 @@ game_max_height = 100
 
 item_width = 150
 item_height = 80
-item_titles = ["调试工具", "底包管理", "热更新管理", "资源包管理"]
-
-content_min_height = ui_height - game_max_height
+item_titles = ["调试配置", "底包管理", "热更新管理", "资源包管理"]
 
 game_group = ["game1", "game2", "game3"]
 
 # 自定义样式
 ui_Stylesheet = """
-    /*去掉item虚线边框*/
+    /*去掉一些控件虚线边框*/
     QListWidget, QListView, QTreeWidget, QTreeView {
         outline: 0px;
     }
-    /*设置左侧选项的最小最大宽度,文字颜色和背景颜色*/
+    /*设置QListWidget选项的文字颜色和背景颜色*/
     QListWidget {
-        min-width: 120px;
-        max-width: 120px;
         color: white;
         background: rgb(120, 120, 120);
     }
-    /*被选中时的背景颜色和左边框颜色*/
+    /*设置QListWidget被选中时的背景颜色和左边框颜色*/
     QListWidget::item:selected {
         background: rgb(110, 110, 110);
         border-left: 2px solid rgb(9, 187, 7);
     }
-    /*鼠标悬停颜色*/
+    /*设置鼠标悬停颜色*/
     HistoryPanel::item:hover {
         # background: rgb(52, 52, 52);
     }
-    /*右侧的层叠窗口的背景颜色*/
+    /*设置QStackedWidget的背景颜色*/
     QStackedWidget {
         # background: rgb(30, 30, 30);
     }
@@ -80,32 +78,6 @@ class BaseDialog(QDialog):
         self.resize(self.width, self.height)
 
 
-# 基础Item
-class BaseItem(QListWidgetItem):
-
-    def __init__(self, index=0, name=""):
-        super(BaseItem, self).__init__()
-        self.index = index
-        self.name = name
-        self.initUI()
-
-    def initUI(self):
-        print(self.name + ":initUI")
-        self.setText(self.name)
-
-    def setIndex(self, index):
-        self.index = index
-
-    def getIndex(self):
-        return self.index
-
-    def setName(self, name):
-        self.name = name
-
-    def getName(self):
-        return self.name
-
-
 # 基础View
 class BaseView(QGroupBox):
 
@@ -129,12 +101,6 @@ class BaseView(QGroupBox):
 
     def getName(self):
         return self.name
-
-
-class ListItem(BaseItem):
-
-    def __init__(self, index, name):
-        super(ListItem, self).__init__(index, name)
 
 
 class GameView(QWidget):
@@ -175,15 +141,16 @@ class GameView(QWidget):
         self.setLayout(mainLayout)
 
 
+# 右侧ContentView
 class ContentView(BaseView):
 
     def __init__(self, index):
         super(ContentView, self).__init__(index)
 
     def initUI(self):
-        radio1 = QRadioButton('&Radio Button 1')
-        radio2 = QRadioButton('R&adio button 2')
-        radio3 = QRadioButton('Ra&dio button 3')
+        radio1 = QRadioButton('Radio Button 1')
+        radio2 = QRadioButton('Radio button 2')
+        radio3 = QRadioButton('Radio button 3')
 
         mainLayout = QVBoxLayout(self)
         mainLayout.addWidget(radio1)
@@ -193,11 +160,58 @@ class ContentView(BaseView):
         self.setLayout(mainLayout)
 
 
+# 左侧listItem
+class ListItem(QListWidgetItem):
+
+    def __init__(self, name):
+        super(ListItem, self).__init__()
+        self.name = name
+        self.initUI()
+
+    def initUI(self):
+        self.setTextAlignment(Qt.AlignCenter)
+        self.refreshUI()
+
+    def refreshUI(self):
+        self.setText(self.name)
+
+    def setName(self, name):
+        self.name = name
+        self.refreshUI()
+
+
+class DebugBox(QGroupBox, Ui_debugBox):
+
+    def __init__(self, name):
+        super(DebugBox, self).__init__()
+        self.name = name
+        self.setupUi(self)
+
+
+# 程序ui框：tabWidget
 class TabView(QWidget, Ui_tabForm):
 
     def __init__(self):
         super(TabView, self).__init__()
         self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
+
+        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
+
+        index = 0
+        for title in item_titles:
+            item = ListItem(title)
+            item.setSizeHint(QSize(item_width, item_height))
+            self.listWidget.addItem(item)
+            index += 1
+
+        index = 0
+        for title in item_titles:
+            view = DebugBox(title)
+            self.stackedWidget.addWidget(view)
+            index += 1
 
 
 class DebugTools(QMainWindow, Ui_MainWindow):
@@ -233,7 +247,7 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         gameView = GameView(index, game_group[index])
         gameView.setMaximumHeight(game_max_height)
         secondWidget = QWidget()
-        secondWidget.setMinimumSize(QSize(ui_width, content_min_height))
+        secondWidget.setMinimumSize(QSize(ui_width, 10))
         mainLayout.addWidget(gameView)
         mainLayout.addWidget(secondWidget)
 
