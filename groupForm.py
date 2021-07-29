@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'tabUI.ui'
+# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../groupForm.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -11,15 +11,15 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_tabForm(object):
-    def setupUi(self, tabForm):
-        tabForm.setObjectName("tabForm")
-        tabForm.resize(1280, 720)
-        tabForm.setMinimumSize(QtCore.QSize(1280, 720))
-        tabForm.setMaximumSize(QtCore.QSize(16777215, 16777215))
-        self.verticalLayout = QtWidgets.QVBoxLayout(tabForm)
+class Ui_groupForm(object):
+    def setupUi(self, groupForm):
+        groupForm.setObjectName("groupForm")
+        groupForm.resize(1280, 720)
+        groupForm.setMinimumSize(QtCore.QSize(1280, 720))
+        groupForm.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self.verticalLayout = QtWidgets.QVBoxLayout(groupForm)
         self.verticalLayout.setObjectName("verticalLayout")
-        self.gameView = QtWidgets.QWidget(tabForm)
+        self.gameView = QtWidgets.QWidget(groupForm)
         self.gameView.setMinimumSize(QtCore.QSize(0, 50))
         self.gameView.setMaximumSize(QtCore.QSize(16777215, 50))
         self.gameView.setObjectName("gameView")
@@ -39,7 +39,7 @@ class Ui_tabForm(object):
         self.btn_setting.setObjectName("btn_setting")
         self.horizontalLayout_2.addWidget(self.btn_setting, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.verticalLayout.addWidget(self.gameView, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
-        self.contentView = QtWidgets.QWidget(tabForm)
+        self.contentView = QtWidgets.QWidget(groupForm)
         self.contentView.setObjectName("contentView")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.contentView)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
@@ -64,12 +64,12 @@ class Ui_tabForm(object):
         self.contentView.raise_()
         self.gameView.raise_()
 
-        self.retranslateUi(tabForm)
+        self.retranslateUi(groupForm)
         self.stackedWidget.setCurrentIndex(-1)
-        QtCore.QMetaObject.connectSlotsByName(tabForm)
+        QtCore.QMetaObject.connectSlotsByName(groupForm)
 
-    def retranslateUi(self, tabForm):
+    def retranslateUi(self, groupForm):
         _translate = QtCore.QCoreApplication.translate
-        tabForm.setWindowTitle(_translate("tabForm", "Form"))
-        self.label_title.setText(_translate("tabForm", "项目路径:"))
-        self.btn_setting.setText(_translate("tabForm", "设置"))
+        groupForm.setWindowTitle(_translate("groupForm", "Form"))
+        self.label_title.setText(_translate("groupForm", "项目路径:"))
+        self.btn_setting.setText(_translate("groupForm", "设置"))

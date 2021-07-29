@@ -10,7 +10,7 @@ class SQLHelper:
     def __init__(self, db_name=DB_NAME):
         self.connect = sqlite3.connect(db_name)
         self.cursor = self.connect.cursor()
-        info("数据库初始化成功")
+        info("初始化数据库")
 
     '''
     创建表
@@ -90,7 +90,7 @@ class SQLHelper:
     def close(self):
         self.cursor.close()
         self.connect.close()
-        info("数据库关闭")
+        info("关闭数据库")
 
 
 # db = SQLHelper()

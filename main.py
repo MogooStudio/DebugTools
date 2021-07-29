@@ -1,36 +1,36 @@
 import sys
 
-from sql import SQLHelper
-from sql import info, error
-
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QLabel, QTabWidget, QTextEdit, QPushButton, QDialog, QToolButton, QRadioButton, QGroupBox, \
-    QStackedWidget, \
-    QSizePolicy, QListWidgetItem, \
-    QListWidget, \
-    QWidget, QVBoxLayout, QHBoxLayout, QApplication, QMainWindow, \
+from PyQt5.QtWidgets import QHeaderView, QLineEdit, QComboBox, QTabWidget, QDialog, QGroupBox, \
+    QListWidgetItem, QTableWidgetItem, \
+    QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget
 
-from ui import Ui_MainWindow
-from tabUI import Ui_tabForm
-from contentBox import Ui_ContentBox
-from debugBox import  Ui_debugBox
+
+from mainUI import Ui_MainWindow
+from groupForm import Ui_groupForm
+from debugBox import Ui_debugBox
+from packageBox import Ui_packageBox
+from packageForm import Ui_packageForm
+from sql import SQLHelper
+from sql import info
 
 debug = True
 
 ui_title = "调试工具"
 ui_width = 1280
 ui_height = 720
-current_index = 0
-
-game_max_height = 100
 
 item_width = 150
 item_height = 80
 item_titles = ["调试配置", "底包管理", "热更新管理", "资源包管理"]
 
-game_group = ["game1", "game2", "game3"]
+tab_group_titles = ["game1", "game2", "game3"]
+tab_platform_titles = ["android", "ios"]
+
+table_titles = ["git版本号", "code版本号", "发布状态"]
+table_cols = len(table_titles)
+table_rows = 20
 
 # 自定义样式
 ui_Stylesheet = """
@@ -78,89 +78,7 @@ class BaseDialog(QDialog):
         self.resize(self.width, self.height)
 
 
-# 基础View
-class BaseView(QGroupBox):
-
-    def __init__(self, index=0, name=""):
-        super(BaseView, self).__init__(name)
-        self.index = index
-        self.name = name
-        self.initUI()
-
-    def initUI(self):
-        print(self.name + ":initUI")
-
-    def setIndex(self, index):
-        self.index = index
-
-    def getIndex(self):
-        return self.index
-
-    def setName(self, name):
-        self.name = name
-
-    def getName(self):
-        return self.name
-
-
-class GameView(QWidget):
-
-    def __init__(self, index, name):
-        super(GameView, self).__init__()
-        self.initUI()
-
-    def initUI(self):
-        mainLayout = QVBoxLayout()
-
-        labWidget = QWidget()
-        labWidget.setMinimumHeight(50)
-        btnWidget = QWidget()
-        btnWidget.setMinimumHeight(50)
-        mainLayout.addWidget(labWidget)
-        mainLayout.addWidget(btnWidget)
-
-        labTitle = QLabel()
-        labTitle.setMaximumWidth(100)
-        labTitle.setText("项目路径: ")
-        textEdit = QTextEdit()
-        textEdit.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        textEdit.setMaximumSize(QSize(500, 25))
-
-        labLayout = QHBoxLayout()
-        labLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        labLayout.addWidget(labTitle)
-        labLayout.addWidget(textEdit)
-
-        btnLayout = QHBoxLayout()
-        btnLayout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        for i in range(5):
-            btnLayout.addWidget(QPushButton("按钮"))
-
-        labWidget.setLayout(labLayout)
-        btnWidget.setLayout(btnLayout)
-        self.setLayout(mainLayout)
-
-
-# 右侧ContentView
-class ContentView(BaseView):
-
-    def __init__(self, index):
-        super(ContentView, self).__init__(index)
-
-    def initUI(self):
-        radio1 = QRadioButton('Radio Button 1')
-        radio2 = QRadioButton('Radio button 2')
-        radio3 = QRadioButton('Radio button 3')
-
-        mainLayout = QVBoxLayout(self)
-        mainLayout.addWidget(radio1)
-        mainLayout.addWidget(radio2)
-        mainLayout.addWidget(radio3)
-        mainLayout.addStretch(1)
-        self.setLayout(mainLayout)
-
-
-# 左侧listItem
+# 左侧list项
 class ListItem(QListWidgetItem):
 
     def __init__(self, name):
@@ -180,118 +98,141 @@ class ListItem(QListWidgetItem):
         self.refreshUI()
 
 
+# table项
+class TableItem(QTableWidgetItem):
+
+    def __init__(self, row, col):
+        super(TableItem, self).__init__("TableItem")
+        self.row = row
+        self.col = col
+                    
+
+
+# 调试项目框
 class DebugBox(QGroupBox, Ui_debugBox):
 
-    def __init__(self, name):
+    def __init__(self, name="DebugBox"):
         super(DebugBox, self).__init__()
         self.name = name
         self.setupUi(self)
 
 
-# 程序ui框：tabWidget
-class TabView(QWidget, Ui_tabForm):
+# 底包管理框
+class PackageBox(QTabWidget, Ui_packageBox):
 
-    def __init__(self):
-        super(TabView, self).__init__()
+    def __init__(self, name="PackageBox"):
+        super(PackageBox, self).__init__()
+        self.name = name
         self.setupUi(self)
         self.initUI()
 
     def initUI(self):
+        index = 0
+        for title in tab_platform_titles:
+            self.addTab(TabPlatformView(), title)
+            index += 1
 
-        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
+
+# game选择tab
+class TabGroupView(QWidget, Ui_groupForm):
+
+    def __init__(self):
+        super(TabGroupView, self).__init__()
+        self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
 
         index = 0
         for title in item_titles:
             item = ListItem(title)
             item.setSizeHint(QSize(item_width, item_height))
             self.listWidget.addItem(item)
+
+            if index == 0:
+                self.stackedWidget.addWidget(DebugBox(item_titles[index]))
+            else:
+                self.stackedWidget.addWidget(PackageBox(item_titles[index]))
+
             index += 1
 
+        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
+        self.listWidget.setCurrentRow(0)
+
+
+# 平台选择tab
+class TabPlatformView(QWidget, Ui_packageForm):
+
+    def __init__(self):
+        super(TabPlatformView, self).__init__()
+        self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
+
+        self.tableWidget.setColumnCount(table_cols)
+        self.tableWidget.setRowCount(table_rows)
+
         index = 0
-        for title in item_titles:
-            view = DebugBox(title)
-            self.stackedWidget.addWidget(view)
+        for name in table_titles:
+            self.tableWidget.setHorizontalHeaderItem(index, QTableWidgetItem(name))
             index += 1
+
+        self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # versionVal = QLineEdit('0.0')
+        # versionVal.setAlignment(Qt.AlignHCenter)
+        # self.tableWidget.setCellWidget(0, 0, versionVal)
+        #
+        # versionVal = QLineEdit('0.0')
+        # versionVal.setAlignment(Qt.AlignHCenter)
+        # self.tableWidget.setCellWidget(0, 1, versionVal)
+
+        item = self.tableWidget.itemAt(1, 1)
+        item.setText("111")
+
+        for row in range(table_rows):
+            cmbState = QComboBox()
+            cmbState.addItem('审核中')
+            cmbState.addItem('已发布')
+            cmbState.addItem('已废弃')
+            cmbState.setCurrentIndex(0)
+            self.tableWidget.setCellWidget(row, 2, cmbState)
 
 
 class DebugTools(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super(DebugTools, self).__init__()
-        self.setupUi(self)
-        self.initUI()
         self.db = SQLHelper()
+        self.setupUi(self)
+        self.init()
+
+    def init(self):
+        self.initData()
+        self.initUI()
+
+    def initData(self):
+        info("加载数据")
 
     def initUI(self):
-
         index = 0
-        for name in game_group:
-            self.tabWidget.addTab(TabView(), name)
+        for title in tab_group_titles:
+            self.tabWidget.addTab(TabGroupView(), title)
             index += 1
 
         self.resize(ui_width, ui_height)
-        self.setPosition()
-        self.setWindowTitle(ui_title)
-        info("ui初始化成功")
-
-    # 添加tab
-    def createTab(self, index):
-        if index < 0 or index >= len(game_group):
-            raise Exception("createTab: index > 0 and index < len(game_group)")
-
-        mainWidget = QWidget()
-        mainLayout = QVBoxLayout()
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-
-        # 上下 layout
-        gameView = GameView(index, game_group[index])
-        gameView.setMaximumHeight(game_max_height)
-        secondWidget = QWidget()
-        secondWidget.setMinimumSize(QSize(ui_width, 10))
-        mainLayout.addWidget(gameView)
-        mainLayout.addWidget(secondWidget)
-
-        # 左右 layout
-        secondLayout = QHBoxLayout()
-        secondWidget.setLayout(secondLayout)
-
-        listWidget = QListWidget()
-        stackedWidget = QStackedWidget()
-        secondLayout.addWidget(listWidget)
-        secondLayout.addWidget(stackedWidget)
-
-        # list widget
-        listWidget.setFrameShape(QListWidget.NoFrame)
-        listWidget.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        listWidget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        listWidget.setSizePolicy(QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding))
-        listWidget.setMinimumSize(QSize(item_width, item_height))
-        listWidget.currentRowChanged.connect(stackedWidget.setCurrentIndex)
-
-        index = 0
-        for title in item_titles:
-            item = ListItem(index, title)
-            item.setSizeHint(QSize(item_width, item_height))
-            listWidget.addItem(item)
-            index += 1
-
-        # stack widget
-        index = 0
-        for _ in item_titles:
-            view = ContentView(index)
-            stackedWidget.addWidget(view)
-            index += 1
-
-        listWidget.setCurrentRow(0)
-        mainWidget.setLayout(mainLayout)
-        return mainWidget
-
-    def setPosition(self):
         frame = self.frameGeometry()
         frame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(frame.topLeft())
+        self.setWindowTitle(ui_title)
+        info("初始化UI")
+
+    def saveData(self):
+        info("保存数据")
 
     def destroy(self):
+        self.saveData()
         self.db.close()
         self.close()
 
@@ -311,7 +252,7 @@ class DebugTools(QMainWindow, Ui_MainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setStyleSheet(ui_Stylesheet)
+    # app.setStyleSheet(ui_Stylesheet)
     tools = DebugTools()
     tools.show()
     sys.exit(app.exec_())

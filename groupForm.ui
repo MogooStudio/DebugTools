@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>tabForm</class>
- <widget class="QWidget" name="tabForm">
+ <class>groupForm</class>
+ <widget class="QWidget" name="groupForm">
   <property name="geometry">
    <rect>
     <x>0</x>
