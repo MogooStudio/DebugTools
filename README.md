@@ -18,6 +18,10 @@
 - 2021.7.30：重构ui（pc演示）
 [![WLFLqA.md.png](https://z3.ax1x.com/2021/07/30/WLFLqA.md.png)](https://imgtu.com/i/WLFLqA)
 
+- 2021.9.22：删减ui功能，优化ui转换脚本（pc演示）
+[![4UXvm8.md.png](https://z3.ax1x.com/2021/09/22/4UXvm8.md.png)](https://imgtu.com/i/4UXvm8)
+
+
 # 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
 ![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
 
