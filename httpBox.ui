@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>packageBox</class>
- <widget class="QGroupBox" name="packageBox">
+ <class>httpBox</class>
+ <widget class="QGroupBox" name="httpBox">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -20,7 +20,7 @@
    <string>GroupBox</string>
   </property>
   <property name="title">
-   <string>打包ipa</string>
+   <string>http服务器</string>
   </property>
  </widget>
  <resources/>

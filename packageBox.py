@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../packageBox.ui'
+# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\packageBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -22,4 +22,5 @@ class Ui_packageBox(object):
 
     def retranslateUi(self, packageBox):
         _translate = QtCore.QCoreApplication.translate
-        packageBox.setWindowTitle(_translate("packageBox", "TabWidget"))
+        packageBox.setWindowTitle(_translate("packageBox", "GroupBox"))
+        packageBox.setTitle(_translate("packageBox", "打包ipa"))
