@@ -1,10 +1,14 @@
 # DebugTools
- 调试工具
+ 项目内部工具-包含一些项目中实用工具
 
-- 配置管理
-- 记录管理
+- 调试项目工具
+- 打包ipa工具
+- http服务器工具
 
- 日志
+# 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
+![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
+
+# 更新日志
 
 - 2021.7.15：完成基本框架（mac演示）
 [![Wm2B2n.md.png](https://z3.ax1x.com/2021/07/15/Wm2B2n.md.png)](https://imgtu.com/i/Wm2B2n)
@@ -21,9 +25,6 @@
 - 2021.9.22：删减ui功能，优化ui转换脚本（pc演示）
 [![4UXvm8.md.png](https://z3.ax1x.com/2021/09/22/4UXvm8.md.png)](https://imgtu.com/i/4UXvm8)
 
-
-# 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
-![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
 
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
