@@ -11,33 +11,36 @@ from log import info, error
 
 class JsonConfig:
 
-    def __init__(self, file, data=""):
+    def __init__(self, file):
         self.file = file
-        self.data = data
-        self.jsonString = self.dumps(self.data)
-        info("初始化config成功 file={0} jsonString={1}".format(self.file, self.jsonString))
+        # if not os.path.exists(self.file):
+        #     with open(self.file, 'w') as fp:
+        #         fp.write({})
+        info("初始化config file={0}".format(self.file))
 
-    def dumps(self, data=None):
+    def dumps(self, data):
         try:
-            return json.dumps(self.data if data is None else data)
+            return json.dumps(data)
         except Exception as ex:
             error("序列化失败 ex={0}".format(str(ex)))
 
-    def loads(self, jsonString=None):
+    def loads(self, jsonString):
         try:
-            return json.loads(self.jsonString if jsonString is None else jsonString)
+            return json.loads(jsonString)
         except Exception as ex:
             error("反序列化失败 ex={0}".format(str(ex)))
 
-    def write_file(self, data=None):
+    def write_file(self, data):
         if self.file is not None:
             with open(self.file, 'w') as fp:
-                json.dump(self.data if data is None else data, fp)
+                json.dump(data, fp)
         else:
             raise Exception("文件未定义 self.file={0}".format(self.file or ""))
 
     def read_file(self):
-        if self.file is not None and os.path.exists(self.file):
+        if not os.path.exists(self.file) or not self.getFileContent():
+            return None
+        if self.file is not None:
             with open(self.file, 'r') as fp:
                 return json.load(fp)
         else:
@@ -47,7 +50,7 @@ class JsonConfig:
         if self.file is not None and os.path.exists(self.file):
             with open(self.file, 'r') as fp:
                 return fp.read()
-        return ""
+        return None
 
 
 '''

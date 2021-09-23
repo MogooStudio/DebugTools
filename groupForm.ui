@@ -77,6 +77,12 @@
           <height>25</height>
          </size>
         </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::NoTextInteraction</set>
+        </property>
        </widget>
       </item>
       <item alignment="Qt::AlignLeft|Qt::AlignVCenter">
