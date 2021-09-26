@@ -1,9 +1,9 @@
 # DebugTools
  项目内部工具-包含一些项目中实用工具
 
-- 调试项目工具
-- 打包ipa工具
-- http服务器工具
+- 调试项目
+- 上传资源
+- 打包ipa
 
 # 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
 ![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
