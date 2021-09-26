@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\mainUI.ui'
+# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../mainUI.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #

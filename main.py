@@ -1,9 +1,13 @@
 import os.path
+import plistlib
 import sys
+import re
+# import plistlib
+from biplist import *
 from enum import IntEnum
 
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, \
+from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, QLabel, \
     QListWidgetItem, QTableWidgetItem, \
     QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget
@@ -26,6 +30,25 @@ class ItemEnum(IntEnum):
     ipa = 3
 
 
+class ConfigEnum(IntEnum):
+    pad = 1
+    dialog = 2
+    download = 3
+    splunk = 4
+    server = 5
+
+
+class ServerUrlEnum(IntEnum):
+    offline_test = 1
+    online_test = 2
+    online = 3
+
+
+class PlatformEnum(IntEnum):
+    android = 1
+    ios = 2
+
+
 ui_title = "调试工具"
 ui_width = 1280
 ui_height = 720
@@ -40,20 +63,212 @@ item_titles = {
 
 tab_group_titles = ["game1", "game2", "game3"]
 
-DATA_SAVE_PATH = "./"
-
-DATA_BASE = {
-    "project_path": "",
+game_package_names = {
+    "game1": ["googleAvidlyFirst", "ios_avidly"],
+    "game2": ["googleHummer2Third", "ios_cashmania"],
+    "game3": ["googleAvidly3First", "ios_vegasparty"],
 }
 
-DATA_DEBUG = {
-    "pad": False,
-    "dialog": False,
-    "download": False,
-    "env": False,
-    "splunk": False,
-    "server": False,
+debug_config_path = {
+    "game1": "/src/",
+    "game2": "/src/",
+    "game3": "/src/framework/devMode/",
 }
+
+common_config_path = {
+    "game1": "/src/",
+    "game2": "/src/",
+    "game3": "/src/framework/",
+}
+
+debug_key = {
+    ConfigEnum.pad: "pad",
+    ConfigEnum.dialog: "dialog",
+    ConfigEnum.download: "download",
+    ConfigEnum.splunk: "splunk",
+    ConfigEnum.server: "server",
+}
+
+download_url = {
+    "game1": "http://192.168.1.201/slots_assets/101/",
+    "game2": "http://192.168.1.201/slots_assets/102/",
+    "game3": "http://192.168.1.201/slots_assets/103/",
+}
+
+server_http_url = {
+    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/api",
+    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/api.php",
+    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/api",
+}
+
+server_report_url = {
+    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/report",
+    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/report.php",
+    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/report",
+}
+
+server_stat_url = {
+    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/stat",
+    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/stat.php",
+    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/stat",
+}
+
+server_terms_url = {
+    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/terms",
+    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/terms.php",
+    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/terms",
+}
+
+config_theme = """
+-------------------------------------------------------------
+---------------------------Theme1 数据写死  debug_num至少从11开始
+-------------------------------------------------------------
+G_ADJUST_SPIN_ITEM_LIST_FUNC = function( themeStatus, spinParam, spinReels )
+    local a = G_THEME1_DEBUG_BY_FIX and G_THEME1_DEBUG_BY_FIX(themeStatus, spinParam, spinReels)
+end
+-------------------------------------------------------------
+---------------------------Theme1 数据筛选
+-------------------------------------------------------------
+G_ADJUST_SPIN_RES_BY_FILTRATION = function( spinResult )
+    local SUM_WIN       = spinResult[K_SPIN_STAT_DATA][K_STAT_SUM_WIN]
+    local TOTAL_BET     = spinResult[K_SPIN_BASE_DATA][K_SPIN_TOTAL_BET]
+    local NORMAL        = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.NORMAL]
+    local FS_GAME       = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.FREE_SPIN_GAME]
+    local FREE_SPIN     = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.FREE_SPIN]
+    local RESPIN_NM     = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.NORMAL_RESPIN]
+    local VEGAS         = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.VEGAS_BONUS]
+    local LITTlE_WIN    = not (SUM_WIN / TOTAL_BET >= 5 and SUM_WIN / TOTAL_BET < 8)
+    local BIG_WIN       = not (SUM_WIN / TOTAL_BET >= 8 and SUM_WIN / TOTAL_BET < 15)
+    local MEGA_WIN      = not (SUM_WIN / TOTAL_BET >= 15 and SUM_WIN / TOTAL_BET < 25)
+    local SUPER_WIN     = not (SUM_WIN / TOTAL_BET >= 25 and SUM_WIN / TOTAL_BET < 40)
+    local EPIC_WIN      = not (SUM_WIN / TOTAL_BET >= 40 )
+    ------------------------------------------------------------------------------------------------------
+    -------------------恢复
+    -------------------free spin 
+    if DEBUG_NUM1 == 2 and FREE_SPIN then
+        return true
+    end
+    -------------------free spin game
+    if DEBUG_NUM1 == 3 and FS_GAME then
+        return true
+    end
+    -------------------normal respin
+    if DEBUG_NUM1 == 4 and RESPIN_NM then
+        return true
+    end
+    -------------------vegas respin
+    if DEBUG_NUM1 == 5 and VEGAS then
+        return true
+    end
+    -------------------little win  5-8 mul
+    if DEBUG_NUM1 == 6 and (LITTlE_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
+        return true
+    end
+    -------------------big win  8-15 mul
+    if DEBUG_NUM1 == 7 and (BIG_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
+        return true
+    end
+    -------------------mega win  15-25 mul
+    if DEBUG_NUM1 == 8 and (MEGA_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
+        return true
+    end
+    -------------------super win  25-40 mul
+    if DEBUG_NUM1 == 9 and (SUPER_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
+        return true
+    end
+    -------------------epic win  40+ mul
+    if DEBUG_NUM1 == 10 and (EPIC_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
+        return true
+    end
+    if G_THEME1_DEBUG_BY_FILTER then
+        return G_THEME1_DEBUG_BY_FILTER(spinResult)
+    end
+    return false
+end 
+
+-------------------------------------------------------------
+---------------------------Theme2 数据写死
+-------------------------------------------------------------
+DEBUG_GET_CHEAT_STOP_DATA = function()
+    local result = G_THEME2_DEBUG_BY_FIX and G_THEME2_DEBUG_BY_FIX()
+    return result
+end
+-------------------------------------------------------------
+---------------------------Theme2 数据筛选
+-------------------------------------------------------------
+DEBUG_PANEL_CHEAT_FILTER = function(spinResult)
+    --测试环境下且白名单用户
+    if not appDebugMode and not Config.whiteTag then
+        return nil
+    end
+    if not spinResult or next(spinResult) == nil then
+        return false
+    end
+    local gameState = spinResult["gameState"]
+    if not gameState then
+        return false
+    end
+    if gameState ~= "base" then
+        return false
+    end
+    local SUM_WIN       = spinResult["winAmount"]
+    local TOTAL_BET     = spinResult["betData"] or spinResult["spinBaseData"]["total_bet"] 
+    local FREE_SPIN     = not spinResult["freeGameData"] or not spinResult["freeGameData"]["is_active"]
+    local FS_GAME       = not spinResult["jackpotGameData"]
+    local VEGAS         = not (spinResult["featureGameData"] and spinResult["featureGameData"]["respin"] and spinResult["featureGameData"]["respin"]["is_active"])
+    local JACKPOT       = not (spinResult["specialSymbolData"] and spinResult["specialSymbolData"]["r"] and spinResult["specialSymbolData"]["r"]["triggerID"])
+    local LITTlE_WIN    = SUM_WIN / TOTAL_BET < 5 or SUM_WIN / TOTAL_BET > 8
+    local BIG_WIN       = SUM_WIN / TOTAL_BET < 8   or SUM_WIN / TOTAL_BET > 15
+    local MEGA_WIN      = SUM_WIN / TOTAL_BET < 15  or SUM_WIN / TOTAL_BET > 25
+    local SUPER_WIN     = SUM_WIN / TOTAL_BET < 25  or SUM_WIN / TOTAL_BET > 40
+    local EPIC_WIN      = SUM_WIN / TOTAL_BET < 40 
+    -------------------什么都不中
+    if DEBUG_NUM1 == 1 and not FREE_SPIN and not FS_GAME and not VEGAS then
+        return true
+    end
+    -------------------free spin 
+    if DEBUG_NUM1 == 2 and FREE_SPIN then
+        return true
+    end
+    -------------------free spin game
+    if DEBUG_NUM1 == 3 and FS_GAME then
+        return true
+    end
+    -------------------normal respin
+    if DEBUG_NUM1 == 4 and JACKPOT then
+        return true
+    end
+    -------------------vegas respin
+    if DEBUG_NUM1 == 5 and VEGAS then
+        return true
+    end
+    -------------------little win  5-8 mul
+    if DEBUG_NUM1 == 6 and LITTlE_WIN then
+        return true
+    end
+    -------------------big win  8-15 mul
+    if DEBUG_NUM1 == 7 and BIG_WIN then
+        return true
+    end
+    -------------------mega win  15-25 mul
+    if DEBUG_NUM1 == 8 and MEGA_WIN then
+        return true
+    end
+    -------------------super win  25-40 mul
+    if DEBUG_NUM1 == 9 and SUPER_WIN then
+        return true
+    end
+    -------------------epic win  40+ mul
+    if DEBUG_NUM1 == 10 and EPIC_WIN then
+        return true
+    end
+    if G_THEME2_DEBUG_BY_FILTER then
+        return G_THEME2_DEBUG_BY_FILTER(spinResult)
+    end
+    --############################################--
+    return false
+end
+"""
 
 # 自定义样式
 ui_Stylesheet = """
@@ -143,21 +358,30 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.selectDownload = False
         self.selectEnv = False
         self.selectSplunk = False
-        self.selectServer = 0
+        self.indexServerPath = 0
+        self.indexGamePackage = 0
         self.data = None
+        self.path = ""
         self.setupUi(self)
         self.initUI()
 
     def initUI(self):
         # mod btn
         self.btn_mod_game.clicked.connect(self.onClickedModBtn)
-        # radio btn
+        # debug item
         self.no_pad.toggled.connect(self.onSelectedPadBtn)
         self.no_dialog.toggled.connect(self.onSelectedDialogBtn)
         self.no_download.toggled.connect(self.onSelectedDownloadBtn)
-        self.no_env.toggled.connect(self.onSelectedEnvBtn)
         self.no_splunk.toggled.connect(self.onSelectedSplunkBtn)
-        self.btn_server_path.currentIndexChanged.connect(self.onSelectedServerBtn)
+        self.box_server_path.insertItem(0, "--请选择--")
+        self.box_server_path.currentIndexChanged.connect(self.onSelectedServerPath)
+        game = self.parent.getGameGroup()
+        packages = game_package_names[game]
+        self.box_game_package.addItem("--请选择--")
+        self.box_game_package.insertItem(PlatformEnum.android, packages[PlatformEnum.android - 1])
+        self.box_game_package.insertItem(PlatformEnum.ios, packages[PlatformEnum.ios - 1])
+        self.box_game_package.setCurrentIndex(0)
+        self.box_game_package.currentIndexChanged.connect(self.onSelectedGamePackage)
         self.updateUI()
 
     def updateUI(self):
@@ -167,11 +391,10 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.yes_dialog.setChecked(self.selectDialog)
         self.no_download.setChecked(not self.selectDownload)
         self.yes_download.setChecked(self.selectDownload)
-        self.no_env.setChecked(not self.selectEnv)
-        self.yes_env.setChecked(self.selectEnv)
         self.no_splunk.setChecked(not self.selectSplunk)
         self.yes_splunk.setChecked(self.selectSplunk)
-        self.btn_server_path.setCurrentIndex(self.selectServer)
+        self.box_server_path.setCurrentIndex(self.indexServerPath)
+        self.box_game_package.setCurrentIndex(self.indexGamePackage)
 
     def onSelectedPadBtn(self):
         self.selectPad = self.yes_pad.isChecked()
@@ -194,13 +417,6 @@ class DebugBox(QGroupBox, Ui_debugBox):
         else:
             info("关闭资源下载")
 
-    def onSelectedEnvBtn(self):
-        self.selectEnv = self.yes_env.isChecked()
-        if self.selectEnv:
-            info("打开外网环境")
-        else:
-            info("关闭外网环境")
-
     def onSelectedSplunkBtn(self):
         self.selectSplunk = self.yes_splunk.isChecked()
         if self.selectSplunk:
@@ -208,38 +424,110 @@ class DebugBox(QGroupBox, Ui_debugBox):
         else:
             info("关闭强制打点")
 
-    def onSelectedServerBtn(self, index):
-        self.selectServer = index
-        if index == 0:
+    def onSelectedServerPath(self, index):
+        self.indexServerPath = index
+        if index == 1:
             info("内网测试服务器")
-        elif index == 1:
-            info("外网测试服务器")
         elif index == 2:
+            info("外网测试服务器")
+        elif index == 3:
             info("线上正式服务器")
+
+    def onSelectedGamePackage(self, index):
+        self.indexGamePackage = index - 1
+        self.updateGamePackageList()
 
     def onClickedModBtn(self):
         self.common_signal.emit(self.title, self.getData())
 
     def getData(self):
         return {
-            "pad": self.selectPad,
-            "dialog": self.selectDialog,
-            "download": self.selectDownload,
-            "env": self.selectEnv,
-            "splunk": self.selectSplunk,
-            "server": self.selectServer,
+            debug_key[ConfigEnum.pad]: self.selectPad,
+            debug_key[ConfigEnum.dialog]: self.selectDialog,
+            debug_key[ConfigEnum.download]: self.selectDownload,
+            debug_key[ConfigEnum.splunk]: self.selectSplunk,
+            debug_key[ConfigEnum.server]: self.indexServerPath,
         }
+
+    def getCdn(self, properties):
+        gameCdn = []
+        resCdn = []
+        if os.path.isfile(properties):
+            count = 1
+            with open(properties, 'r') as f:
+                for line in f.readlines():
+                    if count == 1:
+                        items = line.split('=')[1].replace("\n","")
+                        gameCdn = items.split(':')
+                    if count == 2:
+                        items = line.split('=')[1].replace("\n","")
+                        resCdn = items.split(':')
+                    count += 1
+        return gameCdn, resCdn
+
+    def updateGamePackageList(self):
+        print("updateGamePackageList")
+        path = self.path
+        game = self.parent.getGameGroup()
+        packages = game_package_names[game]
+        package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
+        print(package_config)
+        gameCdn, resCdn = self.getCdn(package_config)
+        for game in gameCdn:
+            print(game)
+        for res in resCdn:
+            print(res)
+
+
+    def setVersionInfo(self):
+        path = self.path
+        game = self.parent.getGameGroup()
+        # git version android
+        config_plist = path + common_config_path[game] + "config.plist"
+        with open(config_plist, "rb") as fp:
+            pl = plistlib.load(fp)
+            self.lab_git_android.setText(pl["gitVersion"])
+        # code version android
+        config_platform = path + "/res_game/config/googleAvidly3First/platformConfig.lua"
+        with open(config_platform, "r") as fp:
+            content = fp.read()
+            match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
+            self.lab_code_android.setText(match_obj.group(1))
+        # git&code version ios
+        config_platform = path + "/res_game/config/ios_vegasparty/platformConfig.lua"
+        with open(config_platform, "r") as fp:
+            content = fp.read()
+            match_obj = re.search(r"Config\.gitVersion\s*=\s*\"([^\"]*)\"", content)
+            self.lab_git_ios.setText(match_obj.group(1))
+            match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
+            self.lab_code_ios.setText(match_obj.group(1))
+
+    # def setGamePackage(self):
+        # path = self.path
+        # game = self.parent.getGameGroup()
+        # packages = game_package_names[game]
+        # self.box_game_package.insertItem(PlatformEnum.android, packages[PlatformEnum.android-1])
+        # self.box_game_package.insertItem(PlatformEnum.ios, packages[PlatformEnum.ios-1])
+        # self.box_game_package.setCurrentIndex(0)
+
 
     def setData(self, data):
         self.data = data
         print("setData: ", data)
+        self.path = data["path"]
+        self.setVersionInfo()
+        # self.setGamePackage()
         debug = data[self.title]
-        self.selectPad = debug["pad"]
-        self.selectDialog = debug["dialog"]
-        self.selectDownload = debug["download"]
-        self.selectEnv = debug["env"]
-        self.selectSplunk = debug["splunk"]
-        self.selectServer = debug["server"]
+        key = debug_key[ConfigEnum.pad]
+        self.selectPad = debug[key]
+        key = debug_key[ConfigEnum.dialog]
+        self.selectDialog = debug[key]
+        key = debug_key[ConfigEnum.download]
+        self.selectDownload = debug[key]
+        key = debug_key[ConfigEnum.splunk]
+        self.selectSplunk = debug[key]
+        key = debug_key[ConfigEnum.server]
+        self.indexServerPath = debug[key]
         self.updateUI()
 
 
@@ -352,6 +640,41 @@ class TabGroupView(QWidget, Ui_groupForm):
         self.model.save({title: data, "game": self.game, "path": path})
         print("保存调试配置: ", title, data, self.game, path)
 
+        key = debug_key[ConfigEnum.pad]
+        pad = "" if data[key] else "--"
+        key = debug_key[ConfigEnum.dialog]
+        dialog = "" if data[key] else "--"
+        key = debug_key[ConfigEnum.download]
+        download = "--" if data[key] else ""
+        key = debug_key[ConfigEnum.splunk]
+        splunk = "" if data[key] else "--"
+        key = debug_key[ConfigEnum.server]
+        server = ServerUrlEnum(data[key])
+        http_url = server_http_url[server]
+        report_url = server_report_url[server]
+        stat_url = server_stat_url[server]
+        terms_url = server_terms_url[server]
+
+        config_lua = path + debug_config_path[self.game] + "selfConfig.lua"
+        with open(config_lua, 'w') as fp:
+            fp.write("Native_path =\n")
+            fp.write("{\n")
+            fp.write("\tsearchPath = {},\n")
+            fp.write("\thotUpdateSwitchOff = true,\n")
+            fp.write("\tdbUseFileTag = true,\n")
+            fp.write("\tthemeDevelopIdList = {},\n")
+            fp.write("\t{0}server = \"{1}\"\n".format(download, download_url[self.game]))
+            fp.write("}\n")
+            fp.write("{0}Config.blockWindow = true\n".format(dialog))
+            fp.write("--Config.checkActivityRes = true\n")
+            fp.write("{0}hummer.padTag = true\n".format(pad))
+            fp.write("{0}Config.forceOpenSplunkLog = true\n".format(splunk))
+            fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
+            fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
+            fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
+            fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
+            fp.write(config_theme)
+
     def handleIPA(self, title, data):
         print("打包ipa")
 
@@ -360,6 +683,7 @@ class TabGroupView(QWidget, Ui_groupForm):
 
     def getGameGroup(self):
         return self.game
+
 
 class DebugTools(QMainWindow, Ui_MainWindow):
 
@@ -402,8 +726,8 @@ class DebugTools(QMainWindow, Ui_MainWindow):
             self.closeUI(lambda: event.ignore())
 
     def closeUI(self, onerror):
-        reply = QMessageBox.question(self, '消息框', "确定关闭程序？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
+        ret = QMessageBox.question(self, '消息框', "确定关闭程序？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if ret == QMessageBox.Yes:
             self.destroy()
         elif onerror:
             onerror()
