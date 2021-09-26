@@ -7,6 +7,8 @@ ENV = {
     "darwin": "/usr/local/Cellar/python@3.9/3.9.2_1/bin/python3.9"
 }
 
+MAC = sys.platform == "darwin"
+
 print("Start.")
 project_path = os.path.join(sys.path[0], "..")
 for ui in os.listdir(project_path):
@@ -16,6 +18,6 @@ for ui in os.listdir(project_path):
         py_path = os.path.join(project_path, py)
         print("ui={0} name={1}".format(ui, py))
         cmd = "{0} -m PyQt5.uic.pyuic {1} -o {2}".format(ENV[sys.platform], ui_path, py_path)
-        process = subprocess.Popen(cmd)
+        process = subprocess.Popen(cmd, shell=MAC)
         process.wait()
 print("Done.")
