@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../mainUI.ui'
+# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\mainUI.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -23,14 +23,32 @@ class Ui_MainWindow(object):
         MainWindow.setMinimumSize(QtCore.QSize(1290, 730))
         self.mainWidget = QtWidgets.QWidget(MainWindow)
         self.mainWidget.setObjectName("mainWidget")
-        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.mainWidget)
-        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_3.setSpacing(1)
-        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.mainWidget)
+        self.verticalLayout.setObjectName("verticalLayout")
         self.tabWidget = QtWidgets.QTabWidget(self.mainWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.tabWidget.sizePolicy().hasHeightForWidth())
+        self.tabWidget.setSizePolicy(sizePolicy)
         self.tabWidget.setMinimumSize(QtCore.QSize(1280, 720))
         self.tabWidget.setObjectName("tabWidget")
-        self.verticalLayout_3.addWidget(self.tabWidget)
+        self.verticalLayout.addWidget(self.tabWidget)
+        self.groupBox = QtWidgets.QGroupBox(self.mainWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.groupBox.sizePolicy().hasHeightForWidth())
+        self.groupBox.setSizePolicy(sizePolicy)
+        self.groupBox.setObjectName("groupBox")
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.plainTextEdit = QtWidgets.QPlainTextEdit(self.groupBox)
+        self.plainTextEdit.setStyleSheet("color: rgb(255, 255, 255);\n"
+"background-color: rgb(0, 0, 0);")
+        self.plainTextEdit.setObjectName("plainTextEdit")
+        self.verticalLayout_2.addWidget(self.plainTextEdit)
+        self.verticalLayout.addWidget(self.groupBox)
         MainWindow.setCentralWidget(self.mainWidget)
 
         self.retranslateUi(MainWindow)
@@ -40,3 +58,4 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.groupBox.setTitle(_translate("MainWindow", "输出"))

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../groupForm.ui'
+# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\groupForm.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -40,6 +40,9 @@ class Ui_groupForm(object):
         self.btn_setting = QtWidgets.QPushButton(self.gameView)
         self.btn_setting.setObjectName("btn_setting")
         self.horizontalLayout_2.addWidget(self.btn_setting, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.btn_open = QtWidgets.QPushButton(self.gameView)
+        self.btn_open.setObjectName("btn_open")
+        self.horizontalLayout_2.addWidget(self.btn_open)
         self.verticalLayout.addWidget(self.gameView, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.contentView = QtWidgets.QWidget(groupForm)
         self.contentView.setObjectName("contentView")
@@ -75,3 +78,4 @@ class Ui_groupForm(object):
         groupForm.setWindowTitle(_translate("groupForm", "Form"))
         self.label_title.setText(_translate("groupForm", "项目路径:"))
         self.btn_setting.setText(_translate("groupForm", "设置"))
+        self.btn_open.setText(_translate("groupForm", "打开"))

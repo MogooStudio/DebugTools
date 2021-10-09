@@ -1,15 +1,10 @@
-import sys
-
 from config import JsonConfig
-
-MODEL_SAVE_PATH = sys.path[0] + "/{0}_data.json"
 
 
 class Model:
 
-    def __init__(self, game):
-        self.game = game
-        self.config = JsonConfig(MODEL_SAVE_PATH.format(game))
+    def __init__(self, path):
+        self.config = JsonConfig(path)
         self.data = None
 
     def save(self, data):

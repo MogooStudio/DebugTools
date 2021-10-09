@@ -92,6 +92,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QPushButton" name="btn_open">
+        <property name="text">
+         <string>打开</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

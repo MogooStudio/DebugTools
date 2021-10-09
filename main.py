@@ -1,14 +1,13 @@
-import os.path
-import plistlib
+import os
 import sys
 import re
-# import plistlib
-from biplist import *
+import plistlib
+import datetime
 from enum import IntEnum
 
-from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, QLabel, \
-    QListWidgetItem, QTableWidgetItem, \
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QUrl, QStandardPaths, QObject
+from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget
 
@@ -18,10 +17,37 @@ from debugBox import Ui_debugBox
 from packageBox import Ui_packageBox
 from uploadBox import Ui_uploadBox
 
-from log import info
 from model import Model
 
-is_debug = True
+
+# 全局函数
+def WritFile(filename, content):
+    with open(filename, "w") as fp:
+        fp.write(content)
+
+
+def ReadFile(filename):
+    with open(filename, "r") as fp:
+        return fp.read()
+
+
+def ReadPlist(filename):
+    with open(filename, "rb") as fp:
+        return plistlib.load(fp)
+
+
+def MakeDir(dirPath):
+    if dirPath and not os.path.exists(dirPath):
+        os.makedirs(dirPath)
+
+
+# 全局变量
+IS_DEBUG_MODE = True
+IS_MAC = sys.platform == "darwin"
+USER_PATH = QStandardPaths.writableLocation(QStandardPaths.HomeLocation)
+print(USER_PATH)
+WORK_PATH = USER_PATH + "/.debugtools"
+MakeDir(WORK_PATH)
 
 
 class ItemEnum(IntEnum):
@@ -39,27 +65,39 @@ class ConfigEnum(IntEnum):
 
 
 class ServerUrlEnum(IntEnum):
-    offline_test = 1
-    online_test = 2
-    online = 3
+    offline_test = 0
+    online_test = 1
+    online = 2
 
 
 class PlatformEnum(IntEnum):
-    android = 1
-    ios = 2
+    android = 0
+    ios = 1
 
 
-ui_title = "调试工具"
-ui_width = 1280
-ui_height = 720
+class MessageError(IntEnum):
+    project_path = 1
+    config_lua = 2
 
-item_width = 150
-item_height = 80
+
+class DebugBoxError(IntEnum):
+    save = 1
+    delete = 2
+
+
+UI_TITLE = "调试工具"
+UI_WIDTH = 1280
+UI_HEIGHT = 900
+
+ITEM_WIDTH = 150
+ITEM_HEIGHT = 80
 item_titles = {
     ItemEnum.debug: "调试配置",
     ItemEnum.upload: "上传资源",
     ItemEnum.ipa: "打包ipa",
 }
+
+ERROR_TITLE = "错误"
 
 tab_group_titles = ["game1", "game2", "game3"]
 
@@ -87,6 +125,18 @@ debug_key = {
     ConfigEnum.download: "download",
     ConfigEnum.splunk: "splunk",
     ConfigEnum.server: "server",
+}
+
+message_error = {
+    MessageError.project_path: "路径不正确，请重新设置",
+    MessageError.config_lua: "配置文件selfConfig不存在",
+
+}
+
+hotupdate_tag = {
+    "game1": "runOnIosSimulator",
+    "game2": "runOnIosSimulator",
+    "game3": "hotUpdateSwitchOff",
 }
 
 download_url = {
@@ -120,11 +170,36 @@ server_terms_url = {
 }
 
 config_theme = """
+---------------------------默认筛选配置
+ALL_PASS = true
+SELECT_TAG = 0
+K_SPIN_MAX_FILTER_COUNT     = 2000
+
 -------------------------------------------------------------
 ---------------------------Theme1 数据写死  debug_num至少从11开始
 -------------------------------------------------------------
 G_ADJUST_SPIN_ITEM_LIST_FUNC = function( themeStatus, spinParam, spinReels )
-    local a = G_THEME1_DEBUG_BY_FIX and G_THEME1_DEBUG_BY_FIX(themeStatus, spinParam, spinReels)
+    if DEBUG_NUM1 == 11 then
+        spinReels[K_SPIN_ITEM_LIST][1][1] = 1
+        spinReels[K_SPIN_ITEM_LIST][1][2] = 1
+        spinReels[K_SPIN_ITEM_LIST][1][3] = 1
+
+        spinReels[K_SPIN_ITEM_LIST][2][1] = 1
+        spinReels[K_SPIN_ITEM_LIST][2][2] = 1
+        spinReels[K_SPIN_ITEM_LIST][2][3] = 1
+
+        spinReels[K_SPIN_ITEM_LIST][3][1] = 1
+        spinReels[K_SPIN_ITEM_LIST][3][2] = 1
+        spinReels[K_SPIN_ITEM_LIST][3][3] = 1
+
+        spinReels[K_SPIN_ITEM_LIST][4][1] = 1
+        spinReels[K_SPIN_ITEM_LIST][4][2] = 1
+        spinReels[K_SPIN_ITEM_LIST][4][3] = 1
+
+        spinReels[K_SPIN_ITEM_LIST][5][1] = 1
+        spinReels[K_SPIN_ITEM_LIST][5][2] = 1
+        spinReels[K_SPIN_ITEM_LIST][5][3] = 1
+    end
 end
 -------------------------------------------------------------
 ---------------------------Theme1 数据筛选
@@ -144,20 +219,37 @@ G_ADJUST_SPIN_RES_BY_FILTRATION = function( spinResult )
     local EPIC_WIN      = not (SUM_WIN / TOTAL_BET >= 40 )
     ------------------------------------------------------------------------------------------------------
     -------------------恢复
+    if DEBUG_NUM1 == 0 then
+        ALL_PASS = true
+        SELECT_TAG = 0
+    end
+    -------------------什么都不中
+    if DEBUG_NUM1 == 1 then
+        ALL_PASS = false
+        SELECT_TAG = 1
+    end
     -------------------free spin 
     if DEBUG_NUM1 == 2 and FREE_SPIN then
+        ALL_PASS = true
+        SELECT_TAG = 2
         return true
     end
     -------------------free spin game
     if DEBUG_NUM1 == 3 and FS_GAME then
+        ALL_PASS = true
+        SELECT_TAG = 3
         return true
     end
     -------------------normal respin
     if DEBUG_NUM1 == 4 and RESPIN_NM then
+        ALL_PASS = true
+        SELECT_TAG = 4
         return true
     end
     -------------------vegas respin
     if DEBUG_NUM1 == 5 and VEGAS then
+        ALL_PASS = true
+        SELECT_TAG = 5
         return true
     end
     -------------------little win  5-8 mul
@@ -180,9 +272,6 @@ G_ADJUST_SPIN_RES_BY_FILTRATION = function( spinResult )
     if DEBUG_NUM1 == 10 and (EPIC_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
         return true
     end
-    if G_THEME1_DEBUG_BY_FILTER then
-        return G_THEME1_DEBUG_BY_FILTER(spinResult)
-    end
     return false
 end 
 
@@ -190,8 +279,28 @@ end
 ---------------------------Theme2 数据写死
 -------------------------------------------------------------
 DEBUG_GET_CHEAT_STOP_DATA = function()
-    local result = G_THEME2_DEBUG_BY_FIX and G_THEME2_DEBUG_BY_FIX()
-    return result
+    --测试环境下且白名单用户
+    if not appDebugMode and not Config.whiteTag then
+        return nil
+    end
+    local cheat_data = {
+        [1] = {
+            {
+                 [1] = {
+                    {3,2,3},
+                    {"s","g",4},
+                    {"s",2,2},
+                    {"s","g",6},
+                    {2,2,1},
+                },
+            }
+        },
+    }
+    if DEBUG_NUM1 and DEBUG_NUM1 == 11 then
+        local result = cheat_data[1][1]
+        return table.copy(result)
+    end
+    return nil
 end
 -------------------------------------------------------------
 ---------------------------Theme2 数据筛选
@@ -212,7 +321,7 @@ DEBUG_PANEL_CHEAT_FILTER = function(spinResult)
         return false
     end
     local SUM_WIN       = spinResult["winAmount"]
-    local TOTAL_BET     = spinResult["betData"] or spinResult["spinBaseData"]["total_bet"] 
+    local TOTAL_BET     = spinResult["betData"]
     local FREE_SPIN     = not spinResult["freeGameData"] or not spinResult["freeGameData"]["is_active"]
     local FS_GAME       = not spinResult["jackpotGameData"]
     local VEGAS         = not (spinResult["featureGameData"] and spinResult["featureGameData"]["respin"] and spinResult["featureGameData"]["respin"]["is_active"])
@@ -222,6 +331,7 @@ DEBUG_PANEL_CHEAT_FILTER = function(spinResult)
     local MEGA_WIN      = SUM_WIN / TOTAL_BET < 15  or SUM_WIN / TOTAL_BET > 25
     local SUPER_WIN     = SUM_WIN / TOTAL_BET < 25  or SUM_WIN / TOTAL_BET > 40
     local EPIC_WIN      = SUM_WIN / TOTAL_BET < 40 
+
     -------------------什么都不中
     if DEBUG_NUM1 == 1 and not FREE_SPIN and not FS_GAME and not VEGAS then
         return true
@@ -262,43 +372,9 @@ DEBUG_PANEL_CHEAT_FILTER = function(spinResult)
     if DEBUG_NUM1 == 10 and EPIC_WIN then
         return true
     end
-    if G_THEME2_DEBUG_BY_FILTER then
-        return G_THEME2_DEBUG_BY_FILTER(spinResult)
-    end
-    --############################################--
     return false
 end
 """
-
-# 自定义样式
-ui_Stylesheet = """
-    /*去掉一些控件虚线边框*/
-    QListWidget, QListView, QTreeWidget, QTreeView {
-        outline: 0px;
-    }
-    /*设置QListWidget选项的文字颜色和背景颜色*/
-    QListWidget {
-        color: white;
-        background: rgb(120, 120, 120);
-    }
-    /*设置QListWidget被选中时的背景颜色和左边框颜色*/
-    QListWidget::item:selected {
-        background: rgb(110, 110, 110);
-        border-left: 2px solid rgb(9, 187, 7);
-    }
-    /*设置鼠标悬停颜色*/
-    HistoryPanel::item:hover {
-        # background: rgb(52, 52, 52);
-    }
-    /*设置QStackedWidget的背景颜色*/
-    QStackedWidget {
-        # background: rgb(30, 30, 30);
-    }
-    /*模拟的页面*/
-    QLabel {
-        # color: white;
-    }
-    """
 
 
 # 基础dialog
@@ -336,53 +412,40 @@ class ListItem(QListWidgetItem):
         self.refreshUI()
 
 
-# table项
-class TableItem(QTableWidgetItem):
-
-    def __init__(self, row, col):
-        super(TableItem, self).__init__("TableItem")
-        self.row = row
-        self.col = col
-
-
 # 调试项目框
 class DebugBox(QGroupBox, Ui_debugBox):
-    common_signal = pyqtSignal(str, dict)
+    common_signal = pyqtSignal(IntEnum, str, dict)
 
     def __init__(self, parent, title):
         super(DebugBox, self).__init__()
         self.parent = parent
         self.title = title
-        self.selectPad = False
-        self.selectDialog = False
-        self.selectDownload = False
-        self.selectEnv = False
-        self.selectSplunk = False
-        self.indexServerPath = 0
-        self.indexGamePackage = 0
-        self.data = None
+        self.data = {}
+        self.gameCdn = []
+        self.resCdn = []
         self.path = ""
+        self.msgTimer = QTimer()
         self.setupUi(self)
+        self.initData()
         self.initUI()
+        self.updateUI()
 
     def initUI(self):
-        # mod btn
-        self.btn_mod_game.clicked.connect(self.onClickedModBtn)
-        # debug item
+        self.btn_change_config.clicked.connect(self.onClickedChangeConfig)
+        self.btn_reset_config.clicked.connect(self.onClickedResetConfig)
+        self.btn_del_config.clicked.connect(self.onClickedDeleteConfig)
         self.no_pad.toggled.connect(self.onSelectedPadBtn)
         self.no_dialog.toggled.connect(self.onSelectedDialogBtn)
         self.no_download.toggled.connect(self.onSelectedDownloadBtn)
         self.no_splunk.toggled.connect(self.onSelectedSplunkBtn)
-        self.box_server_path.insertItem(0, "--请选择--")
         self.box_server_path.currentIndexChanged.connect(self.onSelectedServerPath)
-        game = self.parent.getGameGroup()
-        packages = game_package_names[game]
-        self.box_game_package.addItem("--请选择--")
-        self.box_game_package.insertItem(PlatformEnum.android, packages[PlatformEnum.android - 1])
-        self.box_game_package.insertItem(PlatformEnum.ios, packages[PlatformEnum.ios - 1])
         self.box_game_package.setCurrentIndex(0)
         self.box_game_package.currentIndexChanged.connect(self.onSelectedGamePackage)
-        self.updateUI()
+        self.btn_config_release1.clicked.connect(self.onClickedReleaseConfig1)
+        self.cb_release_flag.clicked.connect(self.onClickedReleaseFlag)
+        self.btn_add_res.clicked.connect(self.onClickedAddRes)
+        self.btn_del_res.clicked.connect(self.onClickedDeleteRes)
+        self.btn_config_res.clicked.connect(self.onClickedOpenResConfig)
 
     def updateUI(self):
         self.no_pad.setChecked(not self.selectPad)
@@ -395,59 +458,153 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.yes_splunk.setChecked(self.selectSplunk)
         self.box_server_path.setCurrentIndex(self.indexServerPath)
         self.box_game_package.setCurrentIndex(self.indexGamePackage)
+        self.cb_release_flag.setChecked(self.selectedReleaseFlag)
 
-    def onSelectedPadBtn(self):
-        self.selectPad = self.yes_pad.isChecked()
-        if self.selectPad:
-            info("打开模拟PAD")
-        else:
-            info("关闭模拟PAD")
-
-    def onSelectedDialogBtn(self):
-        self.selectDialog = self.yes_dialog.isChecked()
-        if self.selectDialog:
-            info("打开屏蔽弹窗")
-        else:
-            info("关闭屏蔽弹窗")
-
-    def onSelectedDownloadBtn(self):
-        self.selectDownload = self.yes_download.isChecked()
-        if self.selectDownload:
-            info("打开资源下载")
-        else:
-            info("关闭资源下载")
-
-    def onSelectedSplunkBtn(self):
-        self.selectSplunk = self.yes_splunk.isChecked()
-        if self.selectSplunk:
-            info("打开强制打点")
-        else:
-            info("关闭强制打点")
-
-    def onSelectedServerPath(self, index):
-        self.indexServerPath = index
-        if index == 1:
-            info("内网测试服务器")
-        elif index == 2:
-            info("外网测试服务器")
-        elif index == 3:
-            info("线上正式服务器")
-
-    def onSelectedGamePackage(self, index):
-        self.indexGamePackage = index - 1
-        self.updateGamePackageList()
-
-    def onClickedModBtn(self):
-        self.common_signal.emit(self.title, self.getData())
-
-    def getData(self):
-        return {
+    def initData(self):
+        self.resetData()
+        self.data = {
             debug_key[ConfigEnum.pad]: self.selectPad,
             debug_key[ConfigEnum.dialog]: self.selectDialog,
             debug_key[ConfigEnum.download]: self.selectDownload,
             debug_key[ConfigEnum.splunk]: self.selectSplunk,
             debug_key[ConfigEnum.server]: self.indexServerPath,
         }
+
+    def resetData(self):
+        self.selectPad = False
+        self.selectDialog = False
+        self.selectDownload = False
+        self.selectSplunk = False
+        self.selectHotupdate = False
+        self.selectPackupdate = False
+        self.indexServerPath = ServerUrlEnum.offline_test
+        self.indexGamePackage = PlatformEnum.android
+        self.selectedReleaseFlag = False
+
+    def checkPathAndCallback(self, path, callback):
+        if self.parent.checkProjectPath(path):
+            callback()
+        else:
+            QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
+
+    def saveConfig(self):
+        self.common_signal.emit(DebugBoxError.save, self.title, self.getData())
+
+    def deleteConfig(self):
+        self.common_signal.emit(DebugBoxError.delete, self.title, self.getData())
+
+    def onClickedChangeConfig(self):
+        def endFunc():
+            self.saveConfig()
+            print("修改配置执行完毕")
+
+        self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedResetConfig(self):
+        def endFunc():
+            self.resetData()
+            self.updateUI()
+            self.saveConfig()
+            print("重置配置执行完毕")
+
+        self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedDeleteConfig(self):
+        def endFunc():
+            self.deleteConfig()
+
+        self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedReleaseConfig1(self):
+        def endFunc():
+            if not self.selectedReleaseFlag:
+                return QMessageBox.warning(self, "警告", "请确认是否打包release包并勾选必选项", QMessageBox.Ok)
+            self.selectPad = False
+            self.selectDialog = False
+            self.selectDownload = False
+            self.selectSplunk = False
+            self.indexServerPath = ServerUrlEnum.online
+            self.updateUI()
+            self.setHotUpdateAndPackUpdateSwitch()
+            print("[屏蔽热更新|屏蔽资源包]执行完毕")
+
+        self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedReleaseFlag(self):
+        self.selectedReleaseFlag = self.cb_release_flag.isChecked()
+
+    def onSelectedPadBtn(self):
+        self.selectPad = self.yes_pad.isChecked()
+
+    def onSelectedDialogBtn(self):
+        self.selectDialog = self.yes_dialog.isChecked()
+
+    def onSelectedDownloadBtn(self):
+        self.selectDownload = self.yes_download.isChecked()
+
+    def onSelectedSplunkBtn(self):
+        self.selectSplunk = self.yes_splunk.isChecked()
+
+    def onSelectedServerPath(self, index):
+        self.indexServerPath = index
+
+    def onSelectedGamePackage(self, index):
+        self.indexGamePackage = index
+        self.updateGamePackageList()
+
+    def onClickedAddRes(self):
+        path = self.path
+        game = self.parent.getGameGroup()
+
+        def endFunc():
+            res_path = QFileDialog.getExistingDirectory(self, "选取指定文件夹", path)
+            dir_name = str(res_path)
+            res_cdn = path + "/res_cdn"
+            game_cdn = path + "/res_game/" + game + "/cdn"
+            res_flag = dir_name.find(res_cdn) >= 0
+            game_flag = dir_name.find(game_cdn) >= 0
+            if dir_name and dir_name != "" and os.path.exists(dir_name) \
+                    and dir_name != res_cdn and dir_name != game_cdn \
+                    and (res_flag or game_flag):
+                old_str = res_cdn + "/"
+                dir_name = dir_name.replace(old_str, "")
+                old_str = game_cdn + "/"
+                dir_name = dir_name.replace(old_str, "")
+                QListWidgetItem(dir_name, self.package_list_widget)
+
+                if res_flag:
+                    self.resCdn.append(dir_name)
+                if game_flag:
+                    self.gameCdn.append(dir_name)
+
+                packages = game_package_names[game]
+                package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
+                with open(package_config, "w") as fp:
+                    fp.write("game_cdn=" + ":".join(self.gameCdn) + "\n")
+                    fp.write("res_cdn=" + ":".join(self.resCdn))
+
+                print("添加资源执行完毕")
+            else:
+                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
+
+        self.checkPathAndCallback(path, endFunc)
+
+    def onClickedDeleteRes(self):
+        def endFunc():
+            print("删除资源执行完毕")
+
+        self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedOpenResConfig(self):
+        path = self.path
+
+        def endFunc():
+            game = self.parent.getGameGroup()
+            packages = game_package_names[game]
+            package_config = path + "/res_game/config/" + packages[self.indexGamePackage]
+            QDesktopServices.openUrl(QUrl(package_config))
+
+        self.checkPathAndCallback(path, endFunc)
 
     def getCdn(self, properties):
         gameCdn = []
@@ -457,78 +614,118 @@ class DebugBox(QGroupBox, Ui_debugBox):
             with open(properties, 'r') as f:
                 for line in f.readlines():
                     if count == 1:
-                        items = line.split('=')[1].replace("\n","")
+                        items = line.split('=')[1].replace("\n", "")
                         gameCdn = items.split(':')
                     if count == 2:
-                        items = line.split('=')[1].replace("\n","")
+                        items = line.split('=')[1].replace("\n", "")
                         resCdn = items.split(':')
                     count += 1
         return gameCdn, resCdn
 
     def updateGamePackageList(self):
-        print("updateGamePackageList")
+        self.gameCdn.clear()
+        self.resCdn.clear()
+        self.package_list_widget.clear()
         path = self.path
-        game = self.parent.getGameGroup()
-        packages = game_package_names[game]
-        package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
-        print(package_config)
-        gameCdn, resCdn = self.getCdn(package_config)
-        for game in gameCdn:
-            print(game)
-        for res in resCdn:
-            print(res)
+        if path and path != "":
+            game = self.parent.getGameGroup()
+            packages = game_package_names[game]
+            package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
+            self.gameCdn, self.resCdn = self.getCdn(package_config)
+            for game in self.gameCdn:
+                if game and game != "":
+                    QListWidgetItem(game, self.package_list_widget)
+            for res in self.resCdn:
+                if res and res != "":
+                    QListWidgetItem(res, self.package_list_widget)
 
+    def setHotUpdateAndPackUpdateSwitch(self):
+        path = self.path
+
+        def replaceSwitch(lua_file):
+            if os.path.exists(lua_file):
+                content = ReadFile(lua_file)
+                content = re.sub(r"Native_path and Native_path.hotUpdateSwitchOff", "true", content)
+                content = re.sub(r"Native_path and Native_path.runOnIosSimulator", "true", content)
+                WritFile(lua_file, content)
+
+        main_lua = path + "/src/main.lua"
+        replaceSwitch(main_lua)
+        pack_lua = path + "/src/framework/pack/PackUpdateControl.lua"
+        replaceSwitch(pack_lua)
 
     def setVersionInfo(self):
         path = self.path
-        game = self.parent.getGameGroup()
-        # git version android
-        config_plist = path + common_config_path[game] + "config.plist"
-        with open(config_plist, "rb") as fp:
-            pl = plistlib.load(fp)
-            self.lab_git_android.setText(pl["gitVersion"])
-        # code version android
-        config_platform = path + "/res_game/config/googleAvidly3First/platformConfig.lua"
-        with open(config_platform, "r") as fp:
-            content = fp.read()
-            match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
-            self.lab_code_android.setText(match_obj.group(1))
-        # git&code version ios
-        config_platform = path + "/res_game/config/ios_vegasparty/platformConfig.lua"
-        with open(config_platform, "r") as fp:
-            content = fp.read()
-            match_obj = re.search(r"Config\.gitVersion\s*=\s*\"([^\"]*)\"", content)
-            self.lab_git_ios.setText(match_obj.group(1))
-            match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
-            self.lab_code_ios.setText(match_obj.group(1))
+        if path and path != "":
+            game = self.parent.getGameGroup()
+            package = game_package_names[game]
+            # android gp
+            version, git_version = "nil", "nil"
+            config_plist = path + common_config_path[game] + "config.plist"
+            if os.path.exists(config_plist):
+                content = ReadPlist(config_plist)
+                git_version = content["gitVersion"] if content else "nil"
+            self.lab_git_android.setText(git_version)
+            config_platform = path + "/res_game/config/" + package[0] + "/platformConfig.lua"
+            if os.path.exists(config_platform):
+                content = ReadFile(config_platform)
+                match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
+                version = match_obj.group(1) if match_obj else "nil"
+            self.lab_code_android.setText(version)
+            # ios
+            config_platform = path + "/res_game/config/" + package[1] + "/platformConfig.lua"
+            if os.path.exists(config_platform):
+                content = ReadFile(config_platform)
+                match_obj = re.search(r"Config\.gitVersion\s*=\s*\"([^\"]*)\"", content)
+                git_version = match_obj.group(1) if match_obj else "nil"
+                match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
+                version = match_obj.group(1) if match_obj else "nil"
+            self.lab_git_ios.setText(git_version)
+            self.lab_code_ios.setText(version)
 
-    # def setGamePackage(self):
-        # path = self.path
-        # game = self.parent.getGameGroup()
-        # packages = game_package_names[game]
-        # self.box_game_package.insertItem(PlatformEnum.android, packages[PlatformEnum.android-1])
-        # self.box_game_package.insertItem(PlatformEnum.ios, packages[PlatformEnum.ios-1])
-        # self.box_game_package.setCurrentIndex(0)
+    def setResInfo(self):
+        path = self.path
+        self.box_game_package.clear()
+        if path and path != "":
+            game = self.parent.getGameGroup()
+            platformEnum = PlatformEnum.android
+            for package_name in game_package_names[game]:
+                self.box_game_package.insertItem(platformEnum, package_name)
+                platformEnum += 1
 
+    def updateData(self):
+        data = self.data
+        debug = data.get(self.title)
+        if debug:
+            key = debug_key[ConfigEnum.pad]
+            self.selectPad = debug[key]
+            key = debug_key[ConfigEnum.dialog]
+            self.selectDialog = debug[key]
+            key = debug_key[ConfigEnum.download]
+            self.selectDownload = debug[key]
+            key = debug_key[ConfigEnum.splunk]
+            self.selectSplunk = debug[key]
+            key = debug_key[ConfigEnum.server]
+            self.indexServerPath = debug[key]
+            self.updateUI()
+        self.setVersionInfo()
+        self.setResInfo()
 
     def setData(self, data):
-        self.data = data
-        print("setData: ", data)
-        self.path = data["path"]
-        self.setVersionInfo()
-        # self.setGamePackage()
-        debug = data[self.title]
-        key = debug_key[ConfigEnum.pad]
-        self.selectPad = debug[key]
-        key = debug_key[ConfigEnum.dialog]
-        self.selectDialog = debug[key]
-        key = debug_key[ConfigEnum.download]
-        self.selectDownload = debug[key]
-        key = debug_key[ConfigEnum.splunk]
-        self.selectSplunk = debug[key]
-        key = debug_key[ConfigEnum.server]
-        self.indexServerPath = debug[key]
-        self.updateUI()
+        self.data = data.get(self.title) or self.data
+        path = data.get("path") or self.path
+        self.setPath(path)
+
+    def setPath(self, path):
+        self.path = path
+        self.updateData()
+        self.saveConfig()
+
+    def getData(self):
+        return self.data
+
+    def getPath(self):
+        return self.path
 
 
 # 上传资源
@@ -540,12 +737,20 @@ class UploadBox(QGroupBox, Ui_uploadBox):
         self.parent = parent
         self.title = title
         self.setupUi(self)
+        self.data = {}
+        self.path = ""
 
     def getData(self):
-        return {}
+        return self.data
 
     def setData(self, data):
-        print(data)
+        self.data = data
+
+    def setPath(self, path):
+        self.path = path
+
+    def getPath(self):
+        return self.path
 
 
 # 打包ipa框
@@ -557,12 +762,20 @@ class PackageBox(QGroupBox, Ui_packageBox):
         self.parent = parent
         self.title = title
         self.setupUi(self)
+        self.data = {}
+        self.path = ""
 
     def getData(self):
-        return {}
+        return self.data
 
     def setData(self, data):
-        print(data)
+        self.data = data
+
+    def setPath(self, path):
+        self.path = path
+
+    def getPath(self):
+        return self.path
 
 
 # game选择tab
@@ -575,6 +788,8 @@ class TabGroupView(QWidget, Ui_groupForm):
         ItemEnum.upload: UploadBox,
     }
 
+    json_path = WORK_PATH + "/{0}_data.json"
+
     def __init__(self, game):
         super(TabGroupView, self).__init__()
         self.game = game
@@ -584,7 +799,7 @@ class TabGroupView(QWidget, Ui_groupForm):
             ItemEnum.upload: self.handleUpload,
         }
         self.boxs = []
-        self.model = Model(self.game)
+        self.model = Model(self.json_path.format(self.game))
         self.setupUi(self)
         self.initUI()
         self.initData()
@@ -601,7 +816,7 @@ class TabGroupView(QWidget, Ui_groupForm):
         itemEnum = ItemEnum(1)
         for title in item_titles.values():
             item = ListItem(title)
-            item.setSizeHint(QSize(item_width, item_height))
+            item.setSizeHint(QSize(ITEM_WIDTH, ITEM_HEIGHT))
             self.listWidget.addItem(item)
 
             box = self.box_clz[itemEnum](self, title)
@@ -614,11 +829,34 @@ class TabGroupView(QWidget, Ui_groupForm):
         self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
         self.listWidget.setCurrentRow(0)
 
-        self.btn_setting.clicked.connect(self.buttonClicked)
+        self.btn_setting.clicked.connect(self.onClickedSetProjectPath)
+        self.btn_open.clicked.connect(self.onClickedOpenProjectPath)
 
-    def buttonClicked(self):
-        get_directory_path = QFileDialog.getExistingDirectory(self, "选取指定文件夹", sys.path[0])
-        self.textEdit_path.setText(str(get_directory_path))
+    def onClickedSetProjectPath(self):
+        path = QFileDialog.getExistingDirectory(self, "选取指定文件夹", sys.path[0])
+        tmpPath = str(path)
+
+        def endFunc():
+            self.textEdit_path.setText(tmpPath)
+            for box in self.boxs:
+                box.setPath(tmpPath)
+
+        self.checkPathAndCallback(tmpPath, endFunc)
+
+    def onClickedOpenProjectPath(self):
+        path = self.getProjectPath()
+        self.checkPathAndCallback(path, lambda: QDesktopServices.openUrl(QUrl(path)))
+
+    def checkPathAndCallback(self, path, callback):
+        if self.checkProjectPath(path):
+            callback()
+        else:
+            QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
+
+    def checkProjectPath(self, path):
+        res_dir = path + "/res"
+        src_dir = path + "/src"
+        return path and path != "" and os.path.exists(res_dir) and os.path.exists(src_dir)
 
     def setProjectPath(self, path):
         text = path if path and path != "" else ""
@@ -627,53 +865,61 @@ class TabGroupView(QWidget, Ui_groupForm):
     def getProjectPath(self):
         return self.textEdit_path.toPlainText()
 
-    def checkProjectPath(self, path):
-        res_dir = path + "/res"
-        src_dir = path + "/src"
-        if path and path != "" and os.path.exists(res_dir) and os.path.exists(src_dir):
-            return True
-
-    def handleDebug(self, title, data):
+    def handleDebug(self, cmd, title, data):
         path = self.getProjectPath()
-        if not self.checkProjectPath(path):
-            return QMessageBox.critical(self, "错误", "项目路径不正确", QMessageBox.Ok)
-        self.model.save({title: data, "game": self.game, "path": path})
-        print("保存调试配置: ", title, data, self.game, path)
-
-        key = debug_key[ConfigEnum.pad]
-        pad = "" if data[key] else "--"
-        key = debug_key[ConfigEnum.dialog]
-        dialog = "" if data[key] else "--"
-        key = debug_key[ConfigEnum.download]
-        download = "--" if data[key] else ""
-        key = debug_key[ConfigEnum.splunk]
-        splunk = "" if data[key] else "--"
-        key = debug_key[ConfigEnum.server]
-        server = ServerUrlEnum(data[key])
-        http_url = server_http_url[server]
-        report_url = server_report_url[server]
-        stat_url = server_stat_url[server]
-        terms_url = server_terms_url[server]
-
         config_lua = path + debug_config_path[self.game] + "selfConfig.lua"
-        with open(config_lua, 'w') as fp:
-            fp.write("Native_path =\n")
-            fp.write("{\n")
-            fp.write("\tsearchPath = {},\n")
-            fp.write("\thotUpdateSwitchOff = true,\n")
-            fp.write("\tdbUseFileTag = true,\n")
-            fp.write("\tthemeDevelopIdList = {},\n")
-            fp.write("\t{0}server = \"{1}\"\n".format(download, download_url[self.game]))
-            fp.write("}\n")
-            fp.write("{0}Config.blockWindow = true\n".format(dialog))
-            fp.write("--Config.checkActivityRes = true\n")
-            fp.write("{0}hummer.padTag = true\n".format(pad))
-            fp.write("{0}Config.forceOpenSplunkLog = true\n".format(splunk))
-            fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
-            fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
-            fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
-            fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
-            fp.write(config_theme)
+
+        def save():
+            self.model.save({title: data, "game": self.game, "path": path})
+
+            key = debug_key[ConfigEnum.pad]
+            pad = "" if data[key] else "--"
+            key = debug_key[ConfigEnum.dialog]
+            dialog = "" if data[key] else "--"
+            key = debug_key[ConfigEnum.download]
+            download = "--" if data[key] else ""
+            key = debug_key[ConfigEnum.splunk]
+            splunk = "" if data[key] else "--"
+            key = debug_key[ConfigEnum.server]
+            server = ServerUrlEnum(data[key])
+            http_url = server_http_url[server]
+            report_url = server_report_url[server]
+            stat_url = server_stat_url[server]
+            terms_url = server_terms_url[server]
+
+            with open(config_lua, 'w', encoding='utf-8') as fp:
+                fp.write("Native_path =\n")
+                fp.write("{\n")
+                fp.write("\tsearchPath = {},\n")
+                fp.write("\t{0} = true,\n".format(hotupdate_tag[self.game]))
+                fp.write("\tdbUseFileTag = true,\n")
+                fp.write("\tthemeDevelopIdList = {},\n")
+                fp.write("\t{0}server = \"{1}\"\n".format(download, download_url[self.game]))
+                fp.write("}\n")
+                fp.write("{0}Config.blockWindow = true\n".format(dialog))
+                fp.write("--Config.checkActivityRes = true\n")
+                fp.write("{0}hummer.padTag = true\n".format(pad))
+                fp.write("{0}Config.forceOpenSplunkLog = true\n".format(splunk))
+                fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
+                fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
+                fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
+                fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
+                fp.write(config_theme)
+
+        def delete():
+            if os.path.exists(config_lua):
+                os.remove(config_lua)
+                print("删除配置文件执行完毕")
+            else:
+                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_lua], QMessageBox.Ok)
+
+        debug_handle = {
+            DebugBoxError.save: save,
+            DebugBoxError.delete: delete,
+        }
+
+        handle = debug_handle[cmd]
+        self.checkPathAndCallback(path, handle)
 
     def handleIPA(self, title, data):
         print("打包ipa")
@@ -684,6 +930,16 @@ class TabGroupView(QWidget, Ui_groupForm):
     def getGameGroup(self):
         return self.game
 
+    def getGamePath(self):
+        return self.getProjectPath()
+
+
+class EmittingStream(QObject):
+    textWritten = pyqtSignal(str)
+
+    def write(self, text):
+        self.textWritten.emit(str(text))
+
 
 class DebugTools(QMainWindow, Ui_MainWindow):
 
@@ -691,36 +947,45 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         super(DebugTools, self).__init__()
         self.setupUi(self)
         self.initUI()
+        self.index = 1
+        # 重定向输出
+        sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
+        sys.stderr = EmittingStream(textWritten=self.normalOutputWritten)
+
+    def normalOutputWritten(self, text):
+        msg = text.replace('\r', '').replace('\n', '').replace('\t', '')
+        if msg and msg != "":
+            msg = "[{0}][{1}]: {2}".format(datetime.datetime.now(), self.index, msg)
+            self.plainTextEdit.appendPlainText(msg)
+            self.index += 1
 
     def initUI(self):
+        self.plainTextEdit.setMaximumBlockCount(20)
+
         for title in tab_group_titles:
             self.tabWidget.addTab(TabGroupView(title), title)
 
-        self.resize(ui_width, ui_height)
+        self.resize(UI_WIDTH, UI_HEIGHT)
         frame = self.frameGeometry()
         frame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(frame.topLeft())
-        self.setWindowTitle(ui_title)
-        info("初始化UI")
-
-    def setProjectRoot(self, path):
-        info(path)
+        self.setWindowTitle(UI_TITLE)
+        print("初始化UI")
 
     def packageIPA(self):
-        info("打包ipa")
+        print("打包ipa")
 
     def uploadRes(self):
-        info("上传资源")
+        print("上传资源")
 
     def closeWin(self):
         self.close()
-        info("关闭窗口")
 
     def destroy(self):
         self.close()
 
     def closeEvent(self, event):
-        if is_debug:
+        if IS_DEBUG_MODE:
             self.destroy()
         else:
             self.closeUI(lambda: event.ignore())
@@ -735,7 +1000,6 @@ class DebugTools(QMainWindow, Ui_MainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    # app.setStyleSheet(ui_Stylesheet)
     tools = DebugTools()
     tools.show()
     sys.exit(app.exec_())

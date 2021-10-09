@@ -13,9 +13,6 @@ class JsonConfig:
 
     def __init__(self, file):
         self.file = file
-        # if not os.path.exists(self.file):
-        #     with open(self.file, 'w') as fp:
-        #         fp.write({})
         info("初始化config file={0}".format(self.file))
 
     def dumps(self, data):
