@@ -25,6 +25,9 @@
 - 2021.9.22：删减ui功能，优化ui转换脚本（pc演示）
 [![4UXvm8.md.png](https://z3.ax1x.com/2021/09/22/4UXvm8.md.png)](https://imgtu.com/i/4UXvm8)
 
+- 2021.10.9：调试功能基本完成（pc演示）
+[![5klf9H.md.png](https://z3.ax1x.com/2021/10/09/5klf9H.md.png)](https://imgtu.com/i/5klf9H)
+
 
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
