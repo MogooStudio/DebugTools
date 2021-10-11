@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\uploadBox.ui'
+# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../uploadBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #

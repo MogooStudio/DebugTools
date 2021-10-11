@@ -29,6 +29,12 @@
 [![5klf9H.md.png](https://z3.ax1x.com/2021/10/09/5klf9H.md.png)](https://imgtu.com/i/5klf9H)
 
 
+## 命令
+- 打包命令
+pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --noconfirm main.py
+
+
+
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
 

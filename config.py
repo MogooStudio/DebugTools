@@ -2,8 +2,6 @@ import json
 import os
 import pickle
 
-from log import info, error
-
 '''
 序列化/反序列化：json
 '''
@@ -13,26 +11,26 @@ class JsonConfig:
 
     def __init__(self, file):
         self.file = file
-        info("初始化config file={0}".format(self.file))
+        print("初始化JsonConfig成功，配置路径={0}".format(self.file))
 
     def dumps(self, data):
         try:
             return json.dumps(data)
         except Exception as ex:
-            error("序列化失败 ex={0}".format(str(ex)))
+            print("data序列化失败，ex={0}".format(str(ex)))
 
     def loads(self, jsonString):
         try:
             return json.loads(jsonString)
         except Exception as ex:
-            error("反序列化失败 ex={0}".format(str(ex)))
+            print("jsonString反序列化失败，ex={0}".format(str(ex)))
 
     def write_file(self, data):
         if self.file is not None:
             with open(self.file, 'w') as fp:
                 json.dump(data, fp)
         else:
-            raise Exception("文件未定义 self.file={0}".format(self.file or ""))
+            raise Exception("配置文件未定义，配置路径={0}".format(self.file or ""))
 
     def read_file(self):
         if not os.path.exists(self.file) or not self.getFileContent():
@@ -41,7 +39,7 @@ class JsonConfig:
             with open(self.file, 'r') as fp:
                 return json.load(fp)
         else:
-            raise Exception("文件不存在 self.file={0}".format(self.file or ""))
+            raise Exception("配置文件不存在，配置路径={0}".format(self.file or ""))
 
     def getFileContent(self):
         if self.file is not None and os.path.exists(self.file):
@@ -61,33 +59,33 @@ class PickleConfig:
         self.file = file
         self.obj = obj
         self.byteString = self.dumps(self.obj)
-        info("初始化config成功 file={0} byteString={1}".format(self.file, self.byteString))
+        print("初始化PickleConfig成功，配置路径={0}".format(self.file))
 
     def dumps(self, obj=None):
         try:
             return pickle.dumps(self.obj if obj is None else obj)
         except Exception as ex:
-            error("序列化失败 ex={0}".format(str(ex)))
+            print("obj序列化失败，ex={0}".format(str(ex)))
 
     def loads(self, byteString=None):
         try:
             return pickle.loads(self.byteString if byteString is None else byteString)
         except Exception as ex:
-            error("反序列化失败 ex={0}".format(str(ex)))
+            print("byteString反序列化失败，ex={0}".format(str(ex)))
 
     def write_file(self, obj=None):
         if self.file is not None:
             with open(self.file, 'wb') as fp:
                 pickle.dump(self.obj if obj is None else obj, fp)
         else:
-            raise Exception("文件未定义 self.file={0}".format(self.file or ""))
+            raise Exception("配置文件未定义，配置路径={0}".format(self.file or ""))
 
     def read_file(self):
         if self.file is not None and os.path.exists(self.file):
             with open(self.file, 'rb') as fp:
                 return pickle.load(fp)
         else:
-            raise Exception("文件不存在 self.file={0}".format(self.file or ""))
+            raise Exception("文件不存在，配置路径={0}".format(self.file or ""))
 
 
 class Student(object):

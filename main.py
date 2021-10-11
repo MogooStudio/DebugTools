@@ -5,7 +5,7 @@ import plistlib
 import datetime
 from enum import IntEnum
 
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtGui import QDesktopServices, QIcon
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QUrl, QStandardPaths, QObject
 from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
@@ -41,11 +41,17 @@ def MakeDir(dirPath):
         os.makedirs(dirPath)
 
 
+def OpenDir(dirPath):
+    if IS_MAC:
+        os.system("open " + dirPath)
+    else:
+        QDesktopServices.openUrl(QUrl(dirPath))
+
+
 # 全局变量
 IS_DEBUG_MODE = True
 IS_MAC = sys.platform == "darwin"
 USER_PATH = QStandardPaths.writableLocation(QStandardPaths.HomeLocation)
-print(USER_PATH)
 WORK_PATH = USER_PATH + "/.debugtools"
 MakeDir(WORK_PATH)
 
@@ -78,11 +84,14 @@ class PlatformEnum(IntEnum):
 class MessageError(IntEnum):
     project_path = 1
     config_lua = 2
+    res_cdn_path = 3
+    config_dir = 4
 
 
 class DebugBoxError(IntEnum):
     save = 1
     delete = 2
+    open = 3
 
 
 UI_TITLE = "调试工具"
@@ -130,7 +139,8 @@ debug_key = {
 message_error = {
     MessageError.project_path: "路径不正确，请重新设置",
     MessageError.config_lua: "配置文件selfConfig不存在",
-
+    MessageError.res_cdn_path: "路径不正确，请重新设置",
+    MessageError.config_dir: "配置文件路径不正确",
 }
 
 hotupdate_tag = {
@@ -434,6 +444,7 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.btn_change_config.clicked.connect(self.onClickedChangeConfig)
         self.btn_reset_config.clicked.connect(self.onClickedResetConfig)
         self.btn_del_config.clicked.connect(self.onClickedDeleteConfig)
+        self.btn_open_config.clicked.connect(self.onClickedOpenConfigDir)
         self.no_pad.toggled.connect(self.onSelectedPadBtn)
         self.no_dialog.toggled.connect(self.onSelectedDialogBtn)
         self.no_download.toggled.connect(self.onSelectedDownloadBtn)
@@ -493,6 +504,9 @@ class DebugBox(QGroupBox, Ui_debugBox):
     def deleteConfig(self):
         self.common_signal.emit(DebugBoxError.delete, self.title, self.getData())
 
+    def openConfig(self):
+        self.common_signal.emit(DebugBoxError.open, self.title, self.getData())
+
     def onClickedChangeConfig(self):
         def endFunc():
             self.saveConfig()
@@ -514,6 +528,13 @@ class DebugBox(QGroupBox, Ui_debugBox):
             self.deleteConfig()
 
         self.checkPathAndCallback(self.path, endFunc)
+
+    def onClickedOpenConfigDir(self):
+        print("111")
+        # def endFunc():
+        #     self.openConfig()
+        #
+        # self.checkPathAndCallback(self.path, endFunc)
 
     def onClickedReleaseConfig1(self):
         def endFunc():
@@ -583,9 +604,9 @@ class DebugBox(QGroupBox, Ui_debugBox):
                     fp.write("game_cdn=" + ":".join(self.gameCdn) + "\n")
                     fp.write("res_cdn=" + ":".join(self.resCdn))
 
-                print("添加资源执行完毕")
+                print("添加资源执行完毕，资源名=", dir_name)
             else:
-                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
+                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.res_cdn_path], QMessageBox.Ok)
 
         self.checkPathAndCallback(path, endFunc)
 
@@ -602,7 +623,7 @@ class DebugBox(QGroupBox, Ui_debugBox):
             game = self.parent.getGameGroup()
             packages = game_package_names[game]
             package_config = path + "/res_game/config/" + packages[self.indexGamePackage]
-            QDesktopServices.openUrl(QUrl(package_config))
+            OpenDir(package_config)
 
         self.checkPathAndCallback(path, endFunc)
 
@@ -845,7 +866,7 @@ class TabGroupView(QWidget, Ui_groupForm):
 
     def onClickedOpenProjectPath(self):
         path = self.getProjectPath()
-        self.checkPathAndCallback(path, lambda: QDesktopServices.openUrl(QUrl(path)))
+        self.checkPathAndCallback(path, lambda: OpenDir(path))
 
     def checkPathAndCallback(self, path, callback):
         if self.checkProjectPath(path):
@@ -867,6 +888,7 @@ class TabGroupView(QWidget, Ui_groupForm):
 
     def handleDebug(self, cmd, title, data):
         path = self.getProjectPath()
+        config_dir = path + debug_config_path[self.game]
         config_lua = path + debug_config_path[self.game] + "selfConfig.lua"
 
         def save():
@@ -909,13 +931,20 @@ class TabGroupView(QWidget, Ui_groupForm):
         def delete():
             if os.path.exists(config_lua):
                 os.remove(config_lua)
-                print("删除配置文件执行完毕")
+                print("删除配置文件执行完毕，配置路径=", config_lua)
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_lua], QMessageBox.Ok)
+
+        def open():
+            if os.path.exists(config_dir):
+                OpenDir(config_dir)
+            else:
+                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_dir], QMessageBox.Ok)
 
         debug_handle = {
             DebugBoxError.save: save,
             DebugBoxError.delete: delete,
+            DebugBoxError.open: open,
         }
 
         handle = debug_handle[cmd]
@@ -946,18 +975,27 @@ class DebugTools(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(DebugTools, self).__init__()
         self.setupUi(self)
-        self.initUI()
-        self.index = 1
         # 重定向输出
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
         sys.stderr = EmittingStream(textWritten=self.normalOutputWritten)
+        # info
+        self.outInfo()
+        # ui
+        self.initUI()
 
     def normalOutputWritten(self, text):
         msg = text.replace('\r', '').replace('\n', '').replace('\t', '')
         if msg and msg != "":
-            msg = "[{0}][{1}]: {2}".format(datetime.datetime.now(), self.index, msg)
+            msg = "[{0}]: {1}".format(datetime.datetime.now(), msg)
             self.plainTextEdit.appendPlainText(msg)
-            self.index += 1
+
+    def outInfo(self):
+        print("------------------------------------")
+        print("用户目录:{0}".format(USER_PATH))
+        print("工作目录:{0}".format(WORK_PATH))
+        print("工作模式:{0}".format("debug" if IS_DEBUG_MODE else "release"))
+        print("操作系统:{0}".format(sys.platform))
+        print("------------------------------------")
 
     def initUI(self):
         self.plainTextEdit.setMaximumBlockCount(20)
@@ -970,7 +1008,7 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         frame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(frame.topLeft())
         self.setWindowTitle(UI_TITLE)
-        print("初始化UI")
+        print("初始化UI成功")
 
     def packageIPA(self):
         print("打包ipa")
@@ -1000,6 +1038,7 @@ class DebugTools(QMainWindow, Ui_MainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon('./icon/128.ico'))
     tools = DebugTools()
     tools.show()
     sys.exit(app.exec_())
