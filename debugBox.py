@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../debugBox.ui'
+# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\debugBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -200,6 +200,7 @@ class Ui_debugBox(object):
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(False)
+        font.setWeight(50)
         self.btn_reset_config.setFont(font)
         self.btn_reset_config.setObjectName("btn_reset_config")
         self.verticalLayout_3.addWidget(self.btn_reset_config)
@@ -212,6 +213,7 @@ class Ui_debugBox(object):
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(False)
+        font.setWeight(50)
         self.btn_change_config.setFont(font)
         self.btn_change_config.setObjectName("btn_change_config")
         self.verticalLayout_3.addWidget(self.btn_change_config)
@@ -237,6 +239,8 @@ class Ui_debugBox(object):
         self.btn_open_config.setFont(font)
         self.btn_open_config.setObjectName("btn_open_config")
         self.verticalLayout_3.addWidget(self.btn_open_config)
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout_3.addItem(spacerItem)
         self.gridLayout.addWidget(self.groupBox_3, 1, 1, 1, 1)
         self.groupBox2 = QtWidgets.QGroupBox(debugBox)
         self.groupBox2.setObjectName("groupBox2")

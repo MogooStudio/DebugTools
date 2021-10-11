@@ -530,11 +530,10 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.checkPathAndCallback(self.path, endFunc)
 
     def onClickedOpenConfigDir(self):
-        print("111")
-        # def endFunc():
-        #     self.openConfig()
-        #
-        # self.checkPathAndCallback(self.path, endFunc)
+        def endFunc():
+            self.openConfig()
+
+        self.checkPathAndCallback(self.path, endFunc)
 
     def onClickedReleaseConfig1(self):
         def endFunc():
@@ -889,9 +888,9 @@ class TabGroupView(QWidget, Ui_groupForm):
     def handleDebug(self, cmd, title, data):
         path = self.getProjectPath()
         config_dir = path + debug_config_path[self.game]
-        config_lua = path + debug_config_path[self.game] + "selfConfig.lua"
+        config_lua = config_dir + "selfConfig.lua"
 
-        def save():
+        def saveConfig():
             self.model.save({title: data, "game": self.game, "path": path})
 
             key = debug_key[ConfigEnum.pad]
@@ -928,23 +927,23 @@ class TabGroupView(QWidget, Ui_groupForm):
                 fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
                 fp.write(config_theme)
 
-        def delete():
+        def deleteConfig():
             if os.path.exists(config_lua):
                 os.remove(config_lua)
                 print("删除配置文件执行完毕，配置路径=", config_lua)
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_lua], QMessageBox.Ok)
 
-        def open():
+        def openConfigDir():
             if os.path.exists(config_dir):
                 OpenDir(config_dir)
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_dir], QMessageBox.Ok)
 
         debug_handle = {
-            DebugBoxError.save: save,
-            DebugBoxError.delete: delete,
-            DebugBoxError.open: open,
+            DebugBoxError.save: saveConfig,
+            DebugBoxError.delete: deleteConfig,
+            DebugBoxError.open: openConfigDir,
         }
 
         handle = debug_handle[cmd]

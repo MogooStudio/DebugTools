@@ -413,6 +413,7 @@
         <property name="font">
          <font>
           <pointsize>11</pointsize>
+          <weight>50</weight>
           <bold>false</bold>
          </font>
         </property>
@@ -432,6 +433,7 @@
         <property name="font">
          <font>
           <pointsize>11</pointsize>
+          <weight>50</weight>
           <bold>false</bold>
          </font>
         </property>
@@ -475,6 +477,19 @@
          <string>打开配置目录</string>
         </property>
        </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
       </item>
      </layout>
     </widget>
