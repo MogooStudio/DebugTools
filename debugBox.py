@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'F:\mogoo\workspace\Python\DebugTools\tools\..\debugBox.ui'
+# Form implementation generated from reading ui file '/Users/jinshan/workspace/win/DebugTools/tools/../debugBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.4
 #
@@ -178,9 +178,6 @@ class Ui_debugBox(object):
         self.btn_add_res = QtWidgets.QPushButton(self.widget_3)
         self.btn_add_res.setObjectName("btn_add_res")
         self.horizontalLayout_7.addWidget(self.btn_add_res)
-        self.btn_del_res = QtWidgets.QPushButton(self.widget_3)
-        self.btn_del_res.setObjectName("btn_del_res")
-        self.horizontalLayout_7.addWidget(self.btn_del_res)
         self.btn_config_res = QtWidgets.QPushButton(self.widget_3)
         self.btn_config_res.setObjectName("btn_config_res")
         self.horizontalLayout_7.addWidget(self.btn_config_res)
@@ -200,7 +197,6 @@ class Ui_debugBox(object):
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(False)
-        font.setWeight(50)
         self.btn_reset_config.setFont(font)
         self.btn_reset_config.setObjectName("btn_reset_config")
         self.verticalLayout_3.addWidget(self.btn_reset_config)
@@ -213,7 +209,6 @@ class Ui_debugBox(object):
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(False)
-        font.setWeight(50)
         self.btn_change_config.setFont(font)
         self.btn_change_config.setObjectName("btn_change_config")
         self.verticalLayout_3.addWidget(self.btn_change_config)
@@ -1072,7 +1067,6 @@ class Ui_debugBox(object):
         self.groupBox1.setToolTip(_translate("debugBox", "<html><head/><body><p><span style=\" font-size:10pt;\">修改res_game/config/包名/config.properties中的资源拷贝配置</span></p></body></html>"))
         self.groupBox1.setTitle(_translate("debugBox", "资源拷贝到包内"))
         self.btn_add_res.setText(_translate("debugBox", "添加资源"))
-        self.btn_del_res.setText(_translate("debugBox", "删除资源"))
         self.btn_config_res.setText(_translate("debugBox", "打开配置"))
         self.groupBox_3.setTitle(_translate("debugBox", "功能列表"))
         self.btn_reset_config.setText(_translate("debugBox", "重置配置"))

@@ -371,13 +371,6 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_del_res">
-           <property name="text">
-            <string>删除资源</string>
-           </property>
-          </widget>
-         </item>
-         <item>
           <widget class="QPushButton" name="btn_config_res">
            <property name="text">
             <string>打开配置</string>
@@ -413,7 +406,6 @@
         <property name="font">
          <font>
           <pointsize>11</pointsize>
-          <weight>50</weight>
           <bold>false</bold>
          </font>
         </property>
@@ -433,7 +425,6 @@
         <property name="font">
          <font>
           <pointsize>11</pointsize>
-          <weight>50</weight>
           <bold>false</bold>
          </font>
         </property>

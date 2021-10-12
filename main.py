@@ -455,7 +455,6 @@ class DebugBox(QGroupBox, Ui_debugBox):
         self.btn_config_release1.clicked.connect(self.onClickedReleaseConfig1)
         self.cb_release_flag.clicked.connect(self.onClickedReleaseFlag)
         self.btn_add_res.clicked.connect(self.onClickedAddRes)
-        self.btn_del_res.clicked.connect(self.onClickedDeleteRes)
         self.btn_config_res.clicked.connect(self.onClickedOpenResConfig)
 
     def updateUI(self):
@@ -608,12 +607,6 @@ class DebugBox(QGroupBox, Ui_debugBox):
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.res_cdn_path], QMessageBox.Ok)
 
         self.checkPathAndCallback(path, endFunc)
-
-    def onClickedDeleteRes(self):
-        def endFunc():
-            print("删除资源执行完毕")
-
-        self.checkPathAndCallback(self.path, endFunc)
 
     def onClickedOpenResConfig(self):
         path = self.path
