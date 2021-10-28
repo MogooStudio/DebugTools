@@ -28,6 +28,9 @@
 - 2021.10.9：调试功能基本完成（pc演示）
 [![5klf9H.md.png](https://z3.ax1x.com/2021/10/09/5klf9H.md.png)](https://imgtu.com/i/5klf9H)
 
+- 2021.10.28：增加上传热更新功能（pc演示）
+[![5LhGCj.png](https://z3.ax1x.com/2021/10/28/5LhGCj.png)](https://imgtu.com/i/5LhGCj)
+
 
 ## 命令
 - 打包命令
