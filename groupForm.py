@@ -33,6 +33,7 @@ class Ui_groupForm(object):
         self.textEdit_path = QtWidgets.QTextEdit(self.gameView)
         self.textEdit_path.setMinimumSize(QtCore.QSize(400, 25))
         self.textEdit_path.setMaximumSize(QtCore.QSize(400, 25))
+        self.textEdit_path.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.textEdit_path.setReadOnly(True)
         self.textEdit_path.setTextInteractionFlags(QtCore.Qt.NoTextInteraction)
         self.textEdit_path.setObjectName("textEdit_path")
