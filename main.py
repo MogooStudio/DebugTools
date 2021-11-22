@@ -3,7 +3,6 @@ import sys
 import re
 import plistlib
 import datetime
-import subprocess
 from enum import IntEnum
 
 from PyQt5.QtGui import QDesktopServices, QIcon
@@ -16,20 +15,26 @@ from mainUI import Ui_MainWindow
 from groupForm import Ui_groupForm
 from debugBox import Ui_debugBox
 from packageBox import Ui_packageBox
-from hotupdateBox import Ui_hotupdateBox
+
 
 from model import Model
 
 
 # 全局函数
 def WritFile(filename, content):
-    with open(filename, "w") as fp:
-        fp.write(content)
+    try:
+        with open(filename, "w") as fp:
+            fp.write(content)
+    except Exception as ex:
+        print("写入文件失败：{0}, {1}".format(filename, ex))
 
 
 def ReadFile(filename):
-    with open(filename, "r") as fp:
-        return fp.read()
+    try:
+        with open(filename, "r") as fp:
+            return fp.read()
+    except Exception as ex:
+        print("读取文件失败：{0}, {1}".format(filename, ex))
 
 
 def ReadPlist(filename):
@@ -89,6 +94,10 @@ class MessageError(IntEnum):
     not_exist_path = 5
 
 
+class MessageWarn(IntEnum):
+    package_release = 1
+
+
 class DebugBoxError(IntEnum):
     save = 1
     delete = 2
@@ -107,6 +116,7 @@ item_titles = {
 }
 
 ERROR_TITLE = "错误"
+WARN_TITLE = "警告"
 
 tab_group_titles = ["game1", "game2", "game3"]
 
@@ -149,6 +159,10 @@ message_error = {
     MessageError.config_dir: "配置文件路径不正确",
     MessageError.not_exist_path: "路径不存在",
 
+}
+
+message_warn = {
+    MessageWarn.package_release: "请确认是否打包release包并勾选必选项",
 }
 
 hotupdate_tag = {
@@ -441,29 +455,23 @@ class BaseBox(QGroupBox):
         self.data = {}
         self.path = ""
 
+    def getName(self):
+        return self.name
+
     def getData(self):
         return self.data
 
     def setData(self, data):
-        self.data = data.get(self.name) or self.data
-        path = data.get("path") or self.path
-        self.setPath(path)
+        self.data = data
 
     def setPath(self, path):
         self.path = path
-        self.updateInfo()
 
     def getPath(self):
         return self.path
 
-    def initInfo(self):
-        print()
-
-    def resetInfo(self):
-        print()
-
     def updateInfo(self):
-        print()
+        print("")
 
 
 # 调试项目框
@@ -473,15 +481,13 @@ class DebugBox(BaseBox, Ui_debugBox):
         super(DebugBox, self).__init__(parent, name)
         self.gameCdn = []
         self.resCdn = []
-        self.msgTimer = QTimer()
         self.setupUi(self)
-        self.initInfo()
+        self.resetInfo()
         self.initUI()
         self.updateUI()
 
     def initUI(self):
         self.btn_change_config.clicked.connect(self.onClickedChangeConfig)
-        self.btn_reset_config.clicked.connect(self.onClickedResetConfig)
         self.btn_del_config.clicked.connect(self.onClickedDeleteConfig)
         self.btn_open_config.clicked.connect(self.onClickedOpenConfigDir)
         self.no_pad.toggled.connect(self.onSelectedPadBtn)
@@ -509,16 +515,6 @@ class DebugBox(BaseBox, Ui_debugBox):
         self.box_game_package.setCurrentIndex(self.indexGamePackage)
         self.cb_release_flag.setChecked(self.selectedReleaseFlag)
 
-    def initInfo(self):
-        self.resetInfo()
-        self.data = {
-            debug_key[ConfigEnum.pad]: self.selectPad,
-            debug_key[ConfigEnum.dialog]: self.selectDialog,
-            debug_key[ConfigEnum.download]: self.selectDownload,
-            debug_key[ConfigEnum.splunk]: self.selectSplunk,
-            debug_key[ConfigEnum.server]: self.indexServerPath,
-        }
-
     def resetInfo(self):
         self.selectPad = False
         self.selectDialog = False
@@ -537,7 +533,8 @@ class DebugBox(BaseBox, Ui_debugBox):
             QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
 
     def saveConfig(self):
-        self.common_signal.emit(DebugBoxError.save, self.name, self.getData())
+        data = self.getData()
+        self.common_signal.emit(DebugBoxError.save, self.name, data)
 
     def deleteConfig(self):
         self.common_signal.emit(DebugBoxError.delete, self.name, self.getData())
@@ -549,15 +546,6 @@ class DebugBox(BaseBox, Ui_debugBox):
         def endFunc():
             self.saveConfig()
             print("修改配置执行完毕")
-
-        self.checkPathAndCallback(self.path, endFunc)
-
-    def onClickedResetConfig(self):
-        def endFunc():
-            self.resetData()
-            self.updateUI()
-            self.saveConfig()
-            print("重置配置执行完毕")
 
         self.checkPathAndCallback(self.path, endFunc)
 
@@ -576,7 +564,7 @@ class DebugBox(BaseBox, Ui_debugBox):
     def onClickedReleaseConfig1(self):
         def endFunc():
             if not self.selectedReleaseFlag:
-                return QMessageBox.warning(self, "警告", "请确认是否打包release包并勾选必选项", QMessageBox.Ok)
+                return QMessageBox.warning(self, WARN_TITLE, message_warn[MessageWarn.package_release], QMessageBox.Ok)
             self.selectPad = False
             self.selectDialog = False
             self.selectDownload = False
@@ -639,9 +627,9 @@ class DebugBox(BaseBox, Ui_debugBox):
                 package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
                 with open(package_config, "w") as fp:
                     fp.write("game_cdn=" + ":".join(self.gameCdn) + "\n")
-                    fp.write("res_cdn=" + ":".join(self.resCdn))
+                    fp.write("res_cdn=" + ":".join(self.resCdn) + "\n")
 
-                print("添加资源执行完毕，资源名=", dir_name)
+                print("添加资源执行完毕，资源名={0}".format(dir_name))
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.res_cdn_path], QMessageBox.Ok)
 
@@ -746,25 +734,28 @@ class DebugBox(BaseBox, Ui_debugBox):
                 platformEnum += 1
 
     def updateInfo(self):
-        debug = self.data.get(self.name)
-        if debug:
-            key = debug_key[ConfigEnum.pad]
-            self.selectPad = debug[key]
-            key = debug_key[ConfigEnum.dialog]
-            self.selectDialog = debug[key]
-            key = debug_key[ConfigEnum.download]
-            self.selectDownload = debug[key]
-            key = debug_key[ConfigEnum.splunk]
-            self.selectSplunk = debug[key]
-            key = debug_key[ConfigEnum.server]
-            self.indexServerPath = debug[key]
-            self.updateUI()
-        self.setVersionInfo()
+        data = self.data
+        key = debug_key[ConfigEnum.pad]
+        self.selectPad = data[key]
+        key = debug_key[ConfigEnum.dialog]
+        self.selectDialog = data[key]
+        key = debug_key[ConfigEnum.download]
+        self.selectDownload = data[key]
+        key = debug_key[ConfigEnum.splunk]
+        self.selectSplunk = data[key]
+        key = debug_key[ConfigEnum.server]
+        self.indexServerPath = data[key]
+        self.updateUI()
         self.setResInfo()
 
-    def setPath(self, path):
-        super(DebugBox, self).setPath(path)
-        self.saveConfig()
+    def getData(self):
+        return {
+            debug_key[ConfigEnum.pad]: self.selectPad,
+            debug_key[ConfigEnum.dialog]: self.selectDialog,
+            debug_key[ConfigEnum.download]: self.selectDownload,
+            debug_key[ConfigEnum.splunk]: self.selectSplunk,
+            debug_key[ConfigEnum.server]: self.indexServerPath,
+        }
 
 
 # 打包ipa框
@@ -776,50 +767,41 @@ class PackageBox(BaseBox, Ui_packageBox):
         self.initUI()
 
     def initUI(self):
-        self.btn_select_dir.clicked.connect(self.onClickedSelectDir)
-        self.btn_upload_files.clicked.connect(self.onClickedUploadFiles)
+        self.btn_select_ipa.clicked.connect(self.onClickedSelectPathIPA)
+        self.btn_select_pod.clicked.connect(self.onClickedSelectPathPod)
+        self.btn_ipa.clicked.connect(self.onClickedIPA)
 
-    def onClickedSelectDir(self):
-        path = QFileDialog.getExistingDirectory(self, "选择热更新文件夹", self.path or sys.path[0])
+    def onClickedSelectPathIPA(self):
+        path = QFileDialog.getExistingDirectory(self, "选择ipa导出文件夹", self.path or sys.path[0])
         tmpPath = str(path)
 
         def endFunc():
-            self.textEdit_hotUpdate.setText(tmpPath)
+            self.textEdit_ipa.setText(tmpPath)
 
         self.checkPathAndCallback(tmpPath, endFunc)
 
-    def getHotUpdateZipPath(self):
-        return self.textEdit_hotUpdate.toPlainText()
+    def onClickedSelectPathPod(self):
+        path = QFileDialog.getExistingDirectory(self, "选择pod存放文件夹", self.path or sys.path[0])
+        tmpPath = str(path)
 
-    def onClickedUploadFiles(self):
-        zip_path = self.getHotUpdateZipPath()
+        def endFunc():
+            self.textEdit_pod.setText(tmpPath)
 
-        def upload():
-            project_path = self.path
-            server_path = project_path + "/tools/server"
-            print("跳转到：" + server_path)
-            if os.path.exists(server_path):
-                os.chdir(server_path)
-                print(os.getcwd())
-                cmd = "python upload_update.py -d " + zip_path
-                process = subprocess.Popen(cmd, shell=IS_MAC)
-                process.wait()
-            else:
-                QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.not_exist_path] + ":" + server_path, QMessageBox.Ok)
+        self.checkPathAndCallback(tmpPath, endFunc)
 
-        self.checkPathAndCallback(zip_path, upload)
+    def getIPAOutputPath(self):
+        return self.textEdit_ipa.toPlainText()
+
+    def onClickedIPA(self):
+        output_path = self.getIPAOutputPath()
+
+        def ipa():
+            print("ipa")
+
+        self.checkPathAndCallback(output_path, ipa)
 
     def checkPathAndCallback(self, path, callback):
-
-        def checkWord():
-            count = 0
-            for tag in game_path_tag:
-                word = path + "/" + game_path_tag[tag]
-                if os.path.exists(word):
-                    count += 1
-            return count > 0
-
-        if path and path != "" and checkWord():
+        if path and path != "" and os.path.isdir(path):
             callback()
         else:
             QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.project_path], QMessageBox.Ok)
@@ -850,22 +832,26 @@ class TabGroupView(QWidget, Ui_groupForm):
         self.initData()
 
     def initData(self):
-        data = self.model.load()
-        if not data:
+        data_game = self.model.load()
+        if not data_game:
             return
-        self.setProjectPath(data['path'])
+        path = data_game['path']
+        self.setProjectPath(path)
         for box in self.boxs:
-            box.setData(data)
+            data_item = data_game.get(box.getName())
+            box.setData(data_item)
+            box.setPath(path)
+            box.updateInfo()
 
     def initUI(self):
         itemEnum = ItemEnum(1)
-        for title in item_titles.values():
+        for name in item_titles.values():
             # item
-            item = ListItem(title)
+            item = ListItem(name)
             item.setSizeHint(QSize(ITEM_WIDTH, ITEM_HEIGHT))
             self.listWidget.addItem(item)
             # box
-            box = self.box_clz[itemEnum](self, title)
+            box = self.box_clz[itemEnum](self, name)
             box.common_signal.connect(self.box_handle[itemEnum])
             self.boxs.append(box)
             self.stackedWidget.addWidget(box)
@@ -953,7 +939,7 @@ class TabGroupView(QWidget, Ui_groupForm):
         def deleteConfig():
             if os.path.exists(config_lua):
                 os.remove(config_lua)
-                print("删除配置文件执行完毕，配置路径=", config_lua)
+                print("删除配置文件执行完毕")
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_lua], QMessageBox.Ok)
 

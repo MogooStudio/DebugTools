@@ -8,7 +8,31 @@
 # 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
 ![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
 
-# 更新日志
+## 开发环境
+- 软件
+```
+Qt 5.12.2
+python 3.8
+```
+- 插件
+```
+PyQt5
+pyinstaller
+```
+
+## 相关命令
+- ui生成代码
+```
+cd tools 
+python convert_ui
+```
+
+- 打包
+```
+pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --noconfirm main.py
+```
+
+# 开发日志
 
 - 2021.7.15：完成基本框架（mac演示）
 [![Wm2B2n.md.png](https://z3.ax1x.com/2021/07/15/Wm2B2n.md.png)](https://imgtu.com/i/Wm2B2n)
@@ -30,13 +54,6 @@
 
 - 2021.10.28：增加上传热更新功能（pc演示）
 [![5LhqMt.png](https://z3.ax1x.com/2021/10/28/5LhqMt.png)](https://imgtu.com/i/5LhqMt)
-
-
-## 命令
-- 打包命令
-pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --noconfirm main.py
-
-
 
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
