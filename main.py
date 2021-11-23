@@ -6,8 +6,8 @@ import datetime
 from enum import IntEnum
 
 from PyQt5.QtGui import QDesktopServices, QIcon
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QUrl, QStandardPaths, QObject
-from PyQt5.QtWidgets import QFileDialog, QDialog, QGroupBox, QListWidgetItem, \
+from PyQt5.QtCore import Qt, QSize, pyqtSignal, QUrl, QStandardPaths
+from PyQt5.QtWidgets import QAction, QFileDialog, QDialog, QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget
 
@@ -16,30 +16,8 @@ from groupForm import Ui_groupForm
 from debugBox import Ui_debugBox
 from packageBox import Ui_packageBox
 
-
 from model import Model
-
-
-# 全局函数
-def WritFile(filename, content):
-    try:
-        with open(filename, "w") as fp:
-            fp.write(content)
-    except Exception as ex:
-        print("写入文件失败：{0}, {1}".format(filename, ex))
-
-
-def ReadFile(filename):
-    try:
-        with open(filename, "r") as fp:
-            return fp.read()
-    except Exception as ex:
-        print("读取文件失败：{0}, {1}".format(filename, ex))
-
-
-def ReadPlist(filename):
-    with open(filename, "rb") as fp:
-        return plistlib.load(fp)
+from log import LogHelper
 
 
 def MakeDir(dirPath):
@@ -60,8 +38,43 @@ IS_MAC = sys.platform == "darwin"
 USER_PATH = QStandardPaths.writableLocation(QStandardPaths.HomeLocation)
 WORK_PATH = USER_PATH + "/.debugtools"
 MakeDir(WORK_PATH)
+LOG_PATH = WORK_PATH + "/log"
+MakeDir(LOG_PATH)
+
+log_config = {
+    "root_path": LOG_PATH,
+    "backup_count": 100,
+    "max_bytes": 8
+}
+LOG = LogHelper(log_config)
 
 
+# 全局函数
+def WritFile(filename, content):
+    try:
+        with open(filename, "w") as fp:
+            fp.write(content)
+    except Exception as ex:
+        LOG.error("写入文件失败：{0}, {1}".format(filename, ex))
+
+
+def ReadFile(filename):
+    try:
+        with open(filename, "r") as fp:
+            return fp.read()
+    except Exception as ex:
+        LOG.error("读取文件失败：{0}, {1}".format(filename, ex))
+
+
+def ReadPlist(filename):
+    try:
+        with open(filename, "rb") as fp:
+            return plistlib.load(fp)
+    except Exception as ex:
+        LOG.error("读取plist失败：{0}, {1}".format(filename, ex))
+
+
+# 枚举
 class ItemEnum(IntEnum):
     debug = 1
     ipa = 2
@@ -104,19 +117,19 @@ class DebugBoxError(IntEnum):
     open = 3
 
 
-UI_TITLE = "调试工具"
 UI_WIDTH = 1280
 UI_HEIGHT = 900
-
 ITEM_WIDTH = 150
 ITEM_HEIGHT = 80
+
+UI_TITLE = "调试工具"
+ERROR_TITLE = "错误"
+WARN_TITLE = "警告"
+
 item_titles = {
     ItemEnum.debug: "调试配置",
     ItemEnum.ipa: "打包ipa",
 }
-
-ERROR_TITLE = "错误"
-WARN_TITLE = "警告"
 
 tab_group_titles = ["game1", "game2", "game3"]
 
@@ -471,7 +484,7 @@ class BaseBox(QGroupBox):
         return self.path
 
     def updateInfo(self):
-        print("")
+        return
 
 
 # 调试项目框
@@ -545,7 +558,7 @@ class DebugBox(BaseBox, Ui_debugBox):
     def onClickedChangeConfig(self):
         def endFunc():
             self.saveConfig()
-            print("修改配置执行完毕")
+            LOG.info("修改配置执行完毕")
 
         self.checkPathAndCallback(self.path, endFunc)
 
@@ -572,7 +585,7 @@ class DebugBox(BaseBox, Ui_debugBox):
             self.indexServerPath = ServerUrlEnum.online
             self.updateUI()
             self.setHotUpdateAndPackUpdateSwitch()
-            print("[屏蔽热更新|屏蔽资源包]执行完毕")
+            LOG.info("[屏蔽热更新|屏蔽资源包]执行完毕")
 
         self.checkPathAndCallback(self.path, endFunc)
 
@@ -629,7 +642,7 @@ class DebugBox(BaseBox, Ui_debugBox):
                     fp.write("game_cdn=" + ":".join(self.gameCdn) + "\n")
                     fp.write("res_cdn=" + ":".join(self.resCdn) + "\n")
 
-                print("添加资源执行完毕，资源名={0}".format(dir_name))
+                LOG.info("添加资源执行完毕，资源名={0}".format(dir_name))
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.res_cdn_path], QMessageBox.Ok)
 
@@ -796,7 +809,7 @@ class PackageBox(BaseBox, Ui_packageBox):
         output_path = self.getIPAOutputPath()
 
         def ipa():
-            print("ipa")
+            LOG.info("ipa")
 
         self.checkPathAndCallback(output_path, ipa)
 
@@ -939,7 +952,7 @@ class TabGroupView(QWidget, Ui_groupForm):
         def deleteConfig():
             if os.path.exists(config_lua):
                 os.remove(config_lua)
-                print("删除配置文件执行完毕")
+                LOG.info("删除配置文件执行完毕")
             else:
                 QMessageBox.critical(self, ERROR_TITLE, message_error[MessageError.config_lua], QMessageBox.Ok)
 
@@ -959,7 +972,7 @@ class TabGroupView(QWidget, Ui_groupForm):
         self.checkPathAndCallback(path, handle)
 
     def handleIPA(self, name, data):
-        print("打包ipa")
+        LOG.info("打包ipa")
 
     def getGameGroup(self):
         return self.game
@@ -968,42 +981,24 @@ class TabGroupView(QWidget, Ui_groupForm):
         return self.getProjectPath()
 
 
-class EmittingStream(QObject):
-    textWritten = pyqtSignal(str)
-
-    def write(self, text):
-        self.textWritten.emit(str(text))
-
-
 class DebugTools(QMainWindow, Ui_MainWindow):
 
     def __init__(self):
         super(DebugTools, self).__init__()
         self.setupUi(self)
-        # 重定向输出
-        sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
-        sys.stderr = EmittingStream(textWritten=self.normalOutputWritten)
-        # info
         self.outInfo()
-        # ui
         self.initUI()
 
-    def normalOutputWritten(self, text):
-        msg = text.replace('\r', '').replace('\n', '').replace('\t', '')
-        if msg and msg != "":
-            msg = "[{0}]: {1}".format(datetime.datetime.now(), msg)
-            self.plainTextEdit.appendPlainText(msg)
-
     def outInfo(self):
-        print("------------------------------------")
-        print("用户目录:{0}".format(USER_PATH))
-        print("工作目录:{0}".format(WORK_PATH))
-        print("工作模式:{0}".format("debug" if IS_DEBUG_MODE else "release"))
-        print("操作系统:{0}".format(sys.platform))
-        print("------------------------------------")
+        LOG.info("------------------------------------")
+        LOG.info("用户目录:{0}".format(USER_PATH))
+        LOG.info("工作目录:{0}".format(WORK_PATH))
+        LOG.info("工作模式:{0}".format("debug" if IS_DEBUG_MODE else "release"))
+        LOG.info("操作系统:{0}".format(sys.platform))
+        LOG.info("------------------------------------")
 
     def initUI(self):
-        self.plainTextEdit.setMaximumBlockCount(20)
+        self.openAction.triggered.connect(self.openConfig)
 
         for title in tab_group_titles:
             self.tabWidget.addTab(TabGroupView(title), title)
@@ -1013,13 +1008,10 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         frame.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(frame.topLeft())
         self.setWindowTitle(UI_TITLE)
-        print("初始化UI成功")
+        LOG.info("初始化UI成功")
 
-    def packageIPA(self):
-        print("打包ipa")
-
-    def uploadRes(self):
-        print("上传资源")
+    def openConfig(self):
+        OpenDir(WORK_PATH)
 
     def closeWin(self):
         self.close()

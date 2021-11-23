@@ -1,7 +1,5 @@
 import sqlite3
 
-from log import info, error
-
 DB_NAME = "default.db"
 
 
@@ -10,7 +8,7 @@ class SQLHelper:
     def __init__(self, db_name=DB_NAME):
         self.connect = sqlite3.connect(db_name)
         self.cursor = self.connect.cursor()
-        info("初始化数据库")
+        print("初始化数据库")
 
     '''
     创建表
@@ -26,7 +24,7 @@ class SQLHelper:
             self.cursor.execute(sql)
             self.connect.commit()
         except Exception as ex:
-            error("数据库表创建失败 sql={0} ex={1}".format(sql, ex))
+            print("数据库表创建失败 sql={0} ex={1}".format(sql, ex))
             return False
 
     '''
@@ -44,7 +42,7 @@ class SQLHelper:
             self.cursor.execute(sql)
             return True
         except Exception as ex:
-            error("数据插入失败 sql={0} ex={1}".format(sql, ex))
+            print("数据插入失败 sql={0} ex={1}".format(sql, ex))
             return False
         finally:
             self.connect.commit()
@@ -66,7 +64,7 @@ class SQLHelper:
             self.cursor.execute(sql)
             return True
         except BaseException as ex:
-            error("数据更新失败 sql={0} ex={1}".format(sql, ex))
+            print("数据更新失败 sql={0} ex={1}".format(sql, ex))
             return False
         finally:
             self.connect.commit()
@@ -81,7 +79,7 @@ class SQLHelper:
             self.cursor.execute(sql)
             return self.cursor.fetchall()
         except Exception as ex:
-            error("数据更新失败 sql={0} ex={1}".format(sql, ex))
+            print("数据更新失败 sql={0} ex={1}".format(sql, ex))
             return []
 
     '''
@@ -90,7 +88,7 @@ class SQLHelper:
     def close(self):
         self.cursor.close()
         self.connect.close()
-        info("关闭数据库")
+        print("关闭数据库")
 
 
 # db = SQLHelper()
