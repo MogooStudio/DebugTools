@@ -52,8 +52,8 @@ pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --nocon
 - 2021.10.9：调试功能基本完成（pc演示）
 [![5klf9H.md.png](https://z3.ax1x.com/2021/10/09/5klf9H.md.png)](https://imgtu.com/i/5klf9H)
 
-- 2021.10.28：增加上传热更新功能（pc演示）
-[![5LhqMt.png](https://z3.ax1x.com/2021/10/28/5LhqMt.png)](https://imgtu.com/i/5LhqMt)
+- 2021.12.17：增加消息框功能（pc演示）
+[![TixWUe.md.png](https://s4.ax1x.com/2021/12/17/TixWUe.md.png)](https://imgtu.com/i/TixWUe)
 
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
