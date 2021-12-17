@@ -1,31 +1,22 @@
-import os
-import sys
-import logging
-import logging.handlers
+import datetime
 
 
 class LogHelper:
 
     def __init__(self, config):
-        root_path = config["root_path"]
-        backup_count = config["backup_count"]
-        max_bytes = config["max_bytes"]
-        name = os.path.join(root_path, sys.argv[0].split('/')[-1].split('.')[0])
-        self.log = logging.getLogger()
-        fmt = logging.Formatter('[%(asctime)s][%(levelname)s] %(message)s', '%Y-%m-%d %H:%M:%S')
-        handle_txt = logging.handlers.RotatingFileHandler(name, maxBytes=max_bytes, backupCount=backup_count)
-        handle_txt.setFormatter(fmt)
-        handle_screen = logging.StreamHandler(stream=sys.stdout)
-        handle_screen.setFormatter(fmt)
-        self.log.addHandler(handle_txt)
-        self.log.addHandler(handle_screen)
-        self.log.setLevel(logging.INFO)
+        self.config = config
+
+    def __log(self, tag, msg):
+        msg = msg.replace('\r', '').replace('\n', '').replace('\t', '')
+        if msg and msg != "":
+            msg = "[{0}][{1}]: {2}".format(tag, datetime.datetime.now(), msg)
+            print(msg)
 
     def info(self, msg):
-        self.log.info(msg)
+        self.__log("info", msg)
 
     def warning(self, msg):
-        self.log.warning(msg)
+        self.__log("warn", msg)
 
     def error(self, msg):
-        self.log.error(msg)
+        self.__log("error", msg)
