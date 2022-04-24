@@ -61,13 +61,19 @@
     <property name="title">
      <string>工具</string>
     </property>
-    <addaction name="openAction"/>
+    <addaction name="openConfigAction"/>
+    <addaction name="crashParseAction"/>
    </widget>
    <addaction name="menu"/>
   </widget>
-  <action name="openAction">
+  <action name="openConfigAction">
    <property name="text">
     <string>打开用户目录</string>
+   </property>
+  </action>
+  <action name="crashParseAction">
+   <property name="text">
+    <string>iOS崩溃解析</string>
    </property>
   </action>
  </widget>

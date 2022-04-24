@@ -115,4 +115,10 @@ dmypy.json
 
 .idea/
 
-*.json
+# Cython debug symbols
+cython_debug/
+
+.idea/
+
+temp/
+tools/local.py

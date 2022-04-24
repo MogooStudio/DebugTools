@@ -1,0 +1,10 @@
+boto==2.49.0
+certifi==2021.10.8
+chardet==4.0.0
+idna==2.10
+Pillow==6.2.2
+qtgui==0.0.1
+qtwidgets==0.18
+requests==2.27.1
+urllib3==1.26.8
+xlrd==1.2.0

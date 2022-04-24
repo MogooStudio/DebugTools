@@ -3,19 +3,25 @@ import os
 import sys
 import re
 import plistlib
+import shutil
 from enum import IntEnum
 
-from PyQt5.QtGui import QPixmap, QDesktopServices, QIcon, QColor, QPainterPath, QPainter, QImage
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF
+import xlrd
+from PyQt5.QtGui import QPixmap, QDesktopServices, QIcon, QColor, QPainterPath, QPainter, QImage, QDragEnterEvent, \
+    QDropEvent
+from PyQt5.QtCore import Qt, QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF, Qt
 from PyQt5.QtWidgets import QSpacerItem, QListWidget, QLabel, QGridLayout, QHBoxLayout, QFileDialog, QDialog, \
     QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy
 
+from changeToJsonBox import Ui_changeToJsonBox
 from mainUI import Ui_MainWindow
 from groupForm import Ui_groupForm
 from debugBox import Ui_debugBox
 from packageBox import Ui_packageBox
+from crashDialog import Ui_crashDialog
+from crashBox import Ui_crashBox
 
 from model import Model
 from log import LogHelper
@@ -41,11 +47,13 @@ WORK_PATH = USER_PATH + "/.debugtools"
 MakeDir(WORK_PATH)
 LOG_PATH = WORK_PATH + "/log"
 MakeDir(LOG_PATH)
+TEMP_PATH = WORK_PATH + "/temp"
+MakeDir(TEMP_PATH)
+
 
 log_config = {
-    "root_path": LOG_PATH,
-    "backup_count": 100,
-    "max_bytes": 8
+    "log_path": LOG_PATH,
+    "backup_count": 10,
 }
 LOG = LogHelper(log_config)
 
@@ -89,6 +97,7 @@ def ReadPlist(filename):
 class ItemEnum(IntEnum):
     debug = 1
     ipa = 2
+    change = 3
 
 
 class ConfigEnum(IntEnum):
@@ -128,12 +137,27 @@ class DebugBoxError(IntEnum):
     open = 3
 
 
-tab_group_titles = ["game1", "game2", "game3"]
+class CrashBoxEnum(IntEnum):
+    ips = 1
+    dSYM = 2
 
+
+tab_group_titles = ["game1", "game2", "game3"]
 
 item_titles = {
     ItemEnum.debug: "调试配置",
     ItemEnum.ipa: "打包ipa",
+    ItemEnum.change: "转换json",
+}
+
+crash_titles = {
+    CrashBoxEnum.ips: "把ips拖入到框内",
+    CrashBoxEnum.dSYM: "把ips拖入到框内",
+}
+
+crash_suffix = {
+    CrashBoxEnum.ips: ".ips",
+    CrashBoxEnum.dSYM: ".dSYM",
 }
 
 game_package_names = {
@@ -194,27 +218,75 @@ download_url = {
 }
 
 server_http_url = {
-    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/api",
-    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/api.php",
-    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/api",
+    ServerUrlEnum.online: {
+        "game1": None,
+        "game2": None,
+        "game3": None,
+    },
+    ServerUrlEnum.offline_test: {
+        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/api.php",
+        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/api.php",
+        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/api.php",
+    },
+    ServerUrlEnum.online_test: {
+        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/api",
+        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/api",
+        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/api",
+    },
 }
 
 server_report_url = {
-    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/report",
-    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/report.php",
-    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/report",
+    ServerUrlEnum.online: {
+        "game1": None,
+        "game2": None,
+        "game3": None,
+    },
+    ServerUrlEnum.offline_test: {
+        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/report.php",
+        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/report.php",
+        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/report.php",
+    },
+    ServerUrlEnum.online_test: {
+        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/report",
+        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/report",
+        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/report",
+    },
 }
 
 server_stat_url = {
-    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/stat",
-    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/stat.php",
-    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/stat",
+    ServerUrlEnum.online: {
+        "game1": None,
+        "game2": None,
+        "game3": None,
+    },
+    ServerUrlEnum.offline_test: {
+        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/stat.php",
+        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/stat.php",
+        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/stat.php",
+    },
+    ServerUrlEnum.online_test: {
+        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/stat",
+        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/stat",
+        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/stat",
+    },
 }
 
 server_terms_url = {
-    ServerUrlEnum.online: "http://avd-game3-slots-elb-995507315.us-west-2.elb.amazonaws.com/terms",
-    ServerUrlEnum.offline_test: "http://192.168.1.201/hm-game3/www/game3/debug/terms.php",
-    ServerUrlEnum.online_test: "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/terms",
+    ServerUrlEnum.online: {
+        "game1": None,
+        "game2": None,
+        "game3": None,
+    },
+    ServerUrlEnum.offline_test: {
+        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/terms.php",
+        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/terms.php",
+        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/terms.php",
+    },
+    ServerUrlEnum.online_test: {
+        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/terms",
+        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/terms",
+        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/terms",
+    },
 }
 
 config_theme = """
@@ -427,7 +499,6 @@ end
 
 # 消息弹窗
 class NotificationIcon:
-
     Info, Success, Warning, Error, Close = range(5)
     Types = {
         Info: None,
@@ -439,10 +510,14 @@ class NotificationIcon:
 
     @classmethod
     def init(cls):
-        cls.Types[cls.Info] = QPixmap(QImage.fromData(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC5ElEQVRYR8VX0VHbQBB9e/bkN3QQU0FMBSEVYFcQ8xPBJLJ1FWAqOMcaxogfTAWQCiAVRKkgTgfmM4zRZu6QhGzL0p0nDPr17e7bt7tv14RX/uiV48MJgAon+8TiAMRtMFogaqUJxADPwRRzg67kl8+xbWJWANR40iPQSSFgtX/mGQkaDr56V3VAKgGos4s2JXwJoF3naMPvMS+SrpTHs032GwGkdF+DsFMVnJm/oyGGeHico0EjIjpYes+YMyVd6R/flfkpBWCCQ9zaZM2LZDfLMGXsZ5kdI/lYBmINgHHyyLd1mWdBbAFAM/GY7K2WYx1AeB4T6L1N9umbGxZ0qktATaEAdCps48D39oq/LwEw3U5CN92LfczJoewfT7MAywDCaEbAuxeLrh0zz4L+0e4aAJfGy+sP3IMxlH1vpMJoSMCJDXgWtJeJVc6ACs9HBBrYODCJAFdYvAmkPJxnNqMwYht7Bn+T/lGg3z4DGEd3RPhQ54DBvwAOVkeqagRXfTLjh+x7+8sALOtfHLuiYzWOAiLoKbD58mnIGbCmLxUepS6NQmYlUGE0JeCTTXT9JvA9E9sZgO5iIpoyc6/YzcqSwQzgGgBXB7oXpH9klpRSkxY1xW/b7Iu2zk34PILPnazCqEPAtTWA8iZ0HsOu9L0bw4DzCJeNocMGNDpQ3IKO+6NUiJ4ysZNiBv5I3zPnmJmG5oM+wbS+9+qkvGi7NAXGmeUy0ioofa+XA0jH0UaMKpdRWs/adcwMqfV/tenqpqHY/Znt+j2gJi00RUzA201dXaxh9iZdZloJS+9H1otrkbRrD5InFqpPskxEshJQ468CkSmJC+i1HigaaxCAuCljgoDhwPdOjf7rFVxxuJrMkXScjtKc1rOLNpJk6nii5XmYzbngzlZn+RIb40kPJPTBYXUt6VEDJ8Pi6bWpNFb/jFYY6YGpDeKdjBmTKdMcxDGEmP73v2a2Gr/NOycGtglQZ/MPzEqCMLGckJEAAAAASUVORK5CYII=')))
-        cls.Types[cls.Success] = QPixmap(QImage.fromData(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACZUlEQVRYR8VXS3LTQBDtVsDbcAPMCbB3limkcAKSG4QFdnaYE2BOQLKzxSLJCeAGSUQheSnfwLmB2VJhXmpExpFHI2sk2RWv5FJPv9evP9NieuIfPzE+VSJw8qt3IMDvmahDoDYxt2UAACXMWIIowR5ffn8TJbaBWRE4CXvHAH9RgKXOgQUI48CfXZbZbiTw8Xe/w3d0zkydMkem91IZpyWOJu5sUXS+kEAqt3B+MNOLOuDqDEBLxxFHk7eza5MfIwEJDjhXTYD1s8zinYlEjsCD7FdNI9cJpEq0RFdPR47AMOzLCn69zegz6UgCP+pmfa8RSKudnPNdgCufTOLDxJtdPP7PoA1Cd8HEL5sSUCCD0B0x8bc1f8Bi6sevcgS2VXh6hMOwDz0gsUddNaxWKRjeuKfE/KlJ9Dq4UYH/o/Ns6scj+bgiMAjdayb26xLQwTfVEwg3gRcf6ARq578KuLo7VDc8psCQqwfjr4EfjYvkrAquFJ56UYpdSkAZSmNd1rrg0leOQFELgvA58OJTxVyRaAJORPOpF6UXnFUR5sDiXjs7UqsOMGMRlrWhTkJXpFL3mNrQZhA1lH3F0TiI5FurUQyMpn58VjhkSqQA4Tbw4nSVW6sBU5VXktXSeONlJH3s8jrOVr9RgVSFuNcWfzlh5n3LoKzMAPxxWuiULiQpiR2sZNnCyzIuWUr5Z1Ml0sgdHFZaShVDuR86/0huL3VXtDk/F4e11vKsTHLSCeKx7bYkW80hjLOrV1GhWH0ZrSlyh2MwdZhYfi8oZeYgLBmUiGd8sfVPM6syr2lUSYGaGBuP3QN6rVUwYV/egwAAAABJRU5ErkJggg==')))
-        cls.Types[cls.Warning] = QPixmap(QImage.fromData(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACmElEQVRYR8VXTW7TUBD+xjYSXZFukOIsSE9AskNJJMoJmq4r7OYEwAkabhBOkB/Emt4gVIojdpgbpIumEitX6gKB7UHPkauXxLHfc4F6Z3l+vvnmm/fGhAd+6IHzQwvA9cfOITMfAdQAcx1EdVEAM/tEFADsWyaPn57MfdXClABcT1qnzHSWJiwMzrwgoF91vXGRbS6AH59ajd8hDYmoURQo67tgxoij42rv62KX/04Agu44xmciVMokT32YERgGjquvZ1+y4mQCWPUa0/sk3vQlwqssEFsAVrQbU4XKL/ai2+5PPK6waQ4AOsoDnDARh83NdmwBuJq0fQI9L6p+L7rd3+/5gbAToMPI+FbkIzRRc72mbLcGIFE7jGFRIPHddmZrvstJh1X8CHGv6sxHqe1GkPYCoGcqgcoCAPPCdr2DLQC6wqMoPEj7qdqCNKllxs30sLpjYDluDUDGG5XqhY2sal3w4PiD7c7fJnHShMtJR8zpy/8CALiwndnhBgD1/t+XAXkaZAaUVHwnHulg0W6BNEWlAQD8zna8gQB0Ne70iXCm2j55jCUAei1gxvuaO+uXAcDg7zXHSy640iKUAehOEDJFqDmGQkiPLO5Fv+KADXOqvCuIsrPGsIyQdHou22YeRMJgOdHTQTkAfGk7XrLKrWlAvOhcRgBfWiZ3RQti0zxXuUFXCXMuo0TRitfxugjbIxC5RYzI6s9kIGFh+KLOpiW22id5AUuI8IaisFG4kCQg/sFKJgtPLix3KWXGeRETRbQDuCFCV2spTYMm+2FEI1WBbYIRPTeiqFtqLZeDraaD+qrbkpgQAvfl1WsXU0p/RjIjYYhTkNFgcCVlRlRKoAAc+5aF0V//NVPoc2kTLQZKZ8lx/AMXBmMwuXUwOAAAAABJRU5ErkJggg==')))
-        cls.Types[cls.Error] = QPixmap(QImage.fromData(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACrklEQVRYR82XW27aQBSG/4PtiNhIpStouoImKwjZAV1B07coWCpZQcgK6kh2lLeSFZSsIOwgdAdkBaUSEBQDpxpjU9vM+EJR03nDzJz/mzm3GcIrD3plfZQCeD47O1ho2jERNRmoE9AQG2BgBGBAwIiZe5Zh3JPjiG+5oxCAEF5q2iWITnMtRhOYu5XF4mr/9naYtSYXYGLbHQCXhYVTEwlom657rVqvBOB2uz71/a+ldq1SYe6ahnEhc4sSYGzbfQKOt915eh0D/ZrrnqS/SwEmrVYXRJ92Jb4OC+C65rrtuN0NgIltNwF837V4zN5Hy3V70e9NgFZrCKJ3CQDmJ9MwDsW36XzeB/AhA/CHqeuN2WxWX2paX2JraHneeynA+Pz8lCqVbxLjV5brimxAEJxqiEA8CjZVBvFy+bl2c9MV9hInoAw85qFpGEeRYQVEQjzMokcQHWxsiPne8jzh6j8AodGfyqNlHpiGcaKAkIk/gChwm2yYuv5W2FqfwLNtN5bAQ2bwySB83zENo50A8/1McaFRAU72XVek+mpk+D/JlIKI/xkee654uCbIhjVAqZIrgSgpLhiCwN4OAEj4vEB2yDybBCjsAol4ZD0nRdMQSRcUCsKUeNSw4o2mKMRGEOamoVx8FXDZKVosDYNMUHXAsBRnppo8RQcbpTgIGEkhykpFjnWxzGhPQYxt2yHgS/oIlKVYTJxImpG482nz+VG1Wh1N84pMCCGa0ULXHwmoJwCYnyzPW5fn/68dh7EgPbrMMl3gz7gro+n/7EoWD7w4a96l1NnJ1Yz5Lt6wCgFEk0r1CIkbiPnC9DxH5aHcd4FYGD5MOqVOg/muslh0/vphkm63k5eXZvA0I6qD+ZCI3jDzLxANiHn1NNvb6+30aVYgwLeeUsgFW1svsPA3Ncq4MHzVeO8AAAAASUVORK5CYII=')))
+        cls.Types[cls.Info] = QPixmap(QImage.fromData(base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC5ElEQVRYR8VX0VHbQBB9e/bkN3QQU0FMBSEVYFcQ8xPBJLJ1FWAqOMcaxogfTAWQCiAVRKkgTgfmM4zRZu6QhGzL0p0nDPr17e7bt7tv14RX/uiV48MJgAon+8TiAMRtMFogaqUJxADPwRRzg67kl8+xbWJWANR40iPQSSFgtX/mGQkaDr56V3VAKgGos4s2JXwJoF3naMPvMS+SrpTHs032GwGkdF+DsFMVnJm/oyGGeHico0EjIjpYes+YMyVd6R/flfkpBWCCQ9zaZM2LZDfLMGXsZ5kdI/lYBmINgHHyyLd1mWdBbAFAM/GY7K2WYx1AeB4T6L1N9umbGxZ0qktATaEAdCps48D39oq/LwEw3U5CN92LfczJoewfT7MAywDCaEbAuxeLrh0zz4L+0e4aAJfGy+sP3IMxlH1vpMJoSMCJDXgWtJeJVc6ACs9HBBrYODCJAFdYvAmkPJxnNqMwYht7Bn+T/lGg3z4DGEd3RPhQ54DBvwAOVkeqagRXfTLjh+x7+8sALOtfHLuiYzWOAiLoKbD58mnIGbCmLxUepS6NQmYlUGE0JeCTTXT9JvA9E9sZgO5iIpoyc6/YzcqSwQzgGgBXB7oXpH9klpRSkxY1xW/b7Iu2zk34PILPnazCqEPAtTWA8iZ0HsOu9L0bw4DzCJeNocMGNDpQ3IKO+6NUiJ4ysZNiBv5I3zPnmJmG5oM+wbS+9+qkvGi7NAXGmeUy0ioofa+XA0jH0UaMKpdRWs/adcwMqfV/tenqpqHY/Znt+j2gJi00RUzA201dXaxh9iZdZloJS+9H1otrkbRrD5InFqpPskxEshJQ468CkSmJC+i1HigaaxCAuCljgoDhwPdOjf7rFVxxuJrMkXScjtKc1rOLNpJk6nii5XmYzbngzlZn+RIb40kPJPTBYXUt6VEDJ8Pi6bWpNFb/jFYY6YGpDeKdjBmTKdMcxDGEmP73v2a2Gr/NOycGtglQZ/MPzEqCMLGckJEAAAAASUVORK5CYII=')))
+        cls.Types[cls.Success] = QPixmap(QImage.fromData(base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACZUlEQVRYR8VXS3LTQBDtVsDbcAPMCbB3limkcAKSG4QFdnaYE2BOQLKzxSLJCeAGSUQheSnfwLmB2VJhXmpExpFHI2sk2RWv5FJPv9evP9NieuIfPzE+VSJw8qt3IMDvmahDoDYxt2UAACXMWIIowR5ffn8TJbaBWRE4CXvHAH9RgKXOgQUI48CfXZbZbiTw8Xe/w3d0zkydMkem91IZpyWOJu5sUXS+kEAqt3B+MNOLOuDqDEBLxxFHk7eza5MfIwEJDjhXTYD1s8zinYlEjsCD7FdNI9cJpEq0RFdPR47AMOzLCn69zegz6UgCP+pmfa8RSKudnPNdgCufTOLDxJtdPP7PoA1Cd8HEL5sSUCCD0B0x8bc1f8Bi6sevcgS2VXh6hMOwDz0gsUddNaxWKRjeuKfE/KlJ9Dq4UYH/o/Ns6scj+bgiMAjdayb26xLQwTfVEwg3gRcf6ARq578KuLo7VDc8psCQqwfjr4EfjYvkrAquFJ56UYpdSkAZSmNd1rrg0leOQFELgvA58OJTxVyRaAJORPOpF6UXnFUR5sDiXjs7UqsOMGMRlrWhTkJXpFL3mNrQZhA1lH3F0TiI5FurUQyMpn58VjhkSqQA4Tbw4nSVW6sBU5VXktXSeONlJH3s8jrOVr9RgVSFuNcWfzlh5n3LoKzMAPxxWuiULiQpiR2sZNnCyzIuWUr5Z1Ml0sgdHFZaShVDuR86/0huL3VXtDk/F4e11vKsTHLSCeKx7bYkW80hjLOrV1GhWH0ZrSlyh2MwdZhYfi8oZeYgLBmUiGd8sfVPM6syr2lUSYGaGBuP3QN6rVUwYV/egwAAAABJRU5ErkJggg==')))
+        cls.Types[cls.Warning] = QPixmap(QImage.fromData(base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACmElEQVRYR8VXTW7TUBD+xjYSXZFukOIsSE9AskNJJMoJmq4r7OYEwAkabhBOkB/Emt4gVIojdpgbpIumEitX6gKB7UHPkauXxLHfc4F6Z3l+vvnmm/fGhAd+6IHzQwvA9cfOITMfAdQAcx1EdVEAM/tEFADsWyaPn57MfdXClABcT1qnzHSWJiwMzrwgoF91vXGRbS6AH59ajd8hDYmoURQo67tgxoij42rv62KX/04Agu44xmciVMokT32YERgGjquvZ1+y4mQCWPUa0/sk3vQlwqssEFsAVrQbU4XKL/ai2+5PPK6waQ4AOsoDnDARh83NdmwBuJq0fQI9L6p+L7rd3+/5gbAToMPI+FbkIzRRc72mbLcGIFE7jGFRIPHddmZrvstJh1X8CHGv6sxHqe1GkPYCoGcqgcoCAPPCdr2DLQC6wqMoPEj7qdqCNKllxs30sLpjYDluDUDGG5XqhY2sal3w4PiD7c7fJnHShMtJR8zpy/8CALiwndnhBgD1/t+XAXkaZAaUVHwnHulg0W6BNEWlAQD8zna8gQB0Ne70iXCm2j55jCUAei1gxvuaO+uXAcDg7zXHSy640iKUAehOEDJFqDmGQkiPLO5Fv+KADXOqvCuIsrPGsIyQdHou22YeRMJgOdHTQTkAfGk7XrLKrWlAvOhcRgBfWiZ3RQti0zxXuUFXCXMuo0TRitfxugjbIxC5RYzI6s9kIGFh+KLOpiW22id5AUuI8IaisFG4kCQg/sFKJgtPLix3KWXGeRETRbQDuCFCV2spTYMm+2FEI1WBbYIRPTeiqFtqLZeDraaD+qrbkpgQAvfl1WsXU0p/RjIjYYhTkNFgcCVlRlRKoAAc+5aF0V//NVPoc2kTLQZKZ8lx/AMXBmMwuXUwOAAAAABJRU5ErkJggg==')))
+        cls.Types[cls.Error] = QPixmap(QImage.fromData(base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACrklEQVRYR82XW27aQBSG/4PtiNhIpStouoImKwjZAV1B07coWCpZQcgK6kh2lLeSFZSsIOwgdAdkBaUSEBQDpxpjU9vM+EJR03nDzJz/mzm3GcIrD3plfZQCeD47O1ho2jERNRmoE9AQG2BgBGBAwIiZe5Zh3JPjiG+5oxCAEF5q2iWITnMtRhOYu5XF4mr/9naYtSYXYGLbHQCXhYVTEwlom657rVqvBOB2uz71/a+ldq1SYe6ahnEhc4sSYGzbfQKOt915eh0D/ZrrnqS/SwEmrVYXRJ92Jb4OC+C65rrtuN0NgIltNwF837V4zN5Hy3V70e9NgFZrCKJ3CQDmJ9MwDsW36XzeB/AhA/CHqeuN2WxWX2paX2JraHneeynA+Pz8lCqVbxLjV5brimxAEJxqiEA8CjZVBvFy+bl2c9MV9hInoAw85qFpGEeRYQVEQjzMokcQHWxsiPne8jzh6j8AodGfyqNlHpiGcaKAkIk/gChwm2yYuv5W2FqfwLNtN5bAQ2bwySB83zENo50A8/1McaFRAU72XVek+mpk+D/JlIKI/xkee654uCbIhjVAqZIrgSgpLhiCwN4OAEj4vEB2yDybBCjsAol4ZD0nRdMQSRcUCsKUeNSw4o2mKMRGEOamoVx8FXDZKVosDYNMUHXAsBRnppo8RQcbpTgIGEkhykpFjnWxzGhPQYxt2yHgS/oIlKVYTJxImpG482nz+VG1Wh1N84pMCCGa0ULXHwmoJwCYnyzPW5fn/68dh7EgPbrMMl3gz7gro+n/7EoWD7w4a96l1NnJ1Yz5Lt6wCgFEk0r1CIkbiPnC9DxH5aHcd4FYGD5MOqVOg/muslh0/vphkm63k5eXZvA0I6qD+ZCI3jDzLxANiHn1NNvb6+30aVYgwLeeUsgFW1svsPA3Ncq4MHzVeO8AAAAASUVORK5CYII=')))
         cls.Types[cls.Close] = QPixmap(QImage.fromData(base64.b64decode(
             'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAeElEQVQ4T2NkoBAwUqifgboGzJy76AIjE3NCWmL0BWwumzV/qcH/f38XpCfHGcDkUVwAUsDw9+8GBmbmAHRDcMlheAGbQnwGYw0DZA1gp+JwFUgKZyDCDQGpwuIlrGGAHHAUGUCRFygKRIqjkeKERE6+oG5eIMcFAOqSchGwiKKAAAAAAElFTkSuQmCC')))
 
@@ -452,7 +527,6 @@ class NotificationIcon:
 
 
 class NotificationItem(QWidget):
-
     closed = pyqtSignal(QListWidgetItem)
 
     def __init__(self, title, message, item, *args, ntype=0, callback=None, **kwargs):
@@ -552,7 +626,6 @@ class NotificationItem(QWidget):
 
 
 class NotificationWindow(QListWidget):
-
     _instance = None
 
     def __init__(self, *args, **kwargs):
@@ -1040,6 +1113,91 @@ class PackageBox(BaseBox, Ui_packageBox):
         else:
             NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
 
+# 转换
+class ChangeToJsonBox(BaseBox, Ui_changeToJsonBox):
+
+    def __init__(self, parent, name):
+        super(ChangeToJsonBox, self).__init__(parent, name)
+        self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
+        self.btn_select_excel.clicked.connect(self.onClickedSelectPathExcel)
+        self.btn_select_json.clicked.connect(self.onClickedSelectPathJson)
+        self.btn_change.clicked.connect(self.onClickedChange)
+
+    def onClickedSelectPathExcel(self):
+        path = QFileDialog.getExistingDirectory(self, "选择Exel文件", self.path or sys.path[0])
+        tmpPath = str(path)
+
+        def endFunc():
+            self.textEdit_ipa.setText(tmpPath)
+
+        self.checkPathAndCallback(tmpPath, endFunc)
+
+    def onClickedSelectPathJson(self):
+        path = QFileDialog.getExistingDirectory(self, "选择json存放文件夹", self.path or sys.path[0])
+        tmpPath = str(path)
+
+        def endFunc():
+            self.textEdit_pod.setText(tmpPath)
+
+        self.checkPathAndCallback(tmpPath, endFunc)
+
+    def getExcelPath(self):
+        return self.textEdit_ipa.toPlainText()
+
+    def getOutputPath(self):
+        return self.textEdit_pod.toPlainText()
+
+    def onClickedChange(self):
+        excel_path = self.getExcelPath()
+        def change():
+            for excel in os.listdir(excel_path):
+                if excel.find("~$") == -1:
+                    if excel.endswith(".xlsx") | excel.endswith(".xls"):
+                        ui_path = os.path.join(excel_path, excel)
+                        fPath, fName = os.path.split(ui_path)
+                        if os.path.isfile(ui_path):
+                            self.makeTranslateData(ui_path, fPath, fName)
+        self.checkPathAndCallback(excel_path, change)
+
+    def makeTranslateData(self, fileName, fPath, fname):
+        table_data = xlrd.open_workbook(fileName)
+        count = 0;
+        for i in range(len(table_data.sheets())):
+            sheetnewTranslate = table_data.sheet_by_index(i)
+            rowNew = sheetnewTranslate.nrows  # 行数
+            colNew = sheetnewTranslate.ncols  # 列数
+
+            jsonName = fPath + "/" + sheetnewTranslate.name + ".lua"
+            f = open(jsonName, 'w+')
+            f.write("Config = {\n")
+            allStr = ""
+            for i in range(rowNew):
+                if i != 0:
+                    tempStr = ""
+                    for k in range(colNew):
+                        if k != 0:
+                            values = sheetnewTranslate.cell_value(i, k)
+                            if k == 1:
+                                tempStr = "{" + str(int(values))
+                            else:
+                                tempStr = tempStr + "," + str(int(values))
+                    tempStr = "\t" + tempStr + "}"
+                    allStr = allStr + tempStr + ",\n"
+            f.write(allStr)
+            f.write("}")
+            f.close()
+            count = count + 1
+        if count == len(table_data.sheets()):
+            NotificationWindow.error(PROMPT_TITLE, "转化成功！")
+
+    def checkPathAndCallback(self, path, callback):
+        if path and path != "" and os.path.isdir(path):
+            callback()
+        else:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
 
 # game选择tab
 class TabGroupView(QWidget, Ui_groupForm):
@@ -1048,6 +1206,7 @@ class TabGroupView(QWidget, Ui_groupForm):
     box_clz = {
         ItemEnum.debug: DebugBox,
         ItemEnum.ipa: PackageBox,
+        ItemEnum.change: ChangeToJsonBox,
     }
 
     json_path = WORK_PATH + "/{0}_data.json"
@@ -1058,6 +1217,7 @@ class TabGroupView(QWidget, Ui_groupForm):
         self.box_handle = {
             ItemEnum.debug: self.handleDebug,
             ItemEnum.ipa: self.handleIPA,
+            ItemEnum.change: self.handleJson,
         }
         self.boxs = []
         self.model = Model(self.json_path.format(self.game))
@@ -1146,10 +1306,10 @@ class TabGroupView(QWidget, Ui_groupForm):
             splunk = "" if data[key] else "--"
             key = debug_key[ConfigEnum.server]
             server = ServerUrlEnum(data[key])
-            http_url = server_http_url[server]
-            report_url = server_report_url[server]
-            stat_url = server_stat_url[server]
-            terms_url = server_terms_url[server]
+            http_url = server_http_url[server][self.game]
+            report_url = server_report_url[server][self.game]
+            stat_url = server_stat_url[server][self.game]
+            terms_url = server_terms_url[server][self.game]
 
             with open(config_lua, 'w', encoding='utf-8') as fp:
                 fp.write("Native_path =\n")
@@ -1164,10 +1324,14 @@ class TabGroupView(QWidget, Ui_groupForm):
                 fp.write("--Config.checkActivityRes = true\n")
                 fp.write("{0}hummer.padTag = true\n".format(pad))
                 fp.write("{0}Config.forceOpenSplunkLog = true\n".format(splunk))
-                fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
-                fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
-                fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
-                fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
+                if http_url is not None:
+                    fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
+                if report_url is not None:
+                    fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
+                if report_url is not None:
+                    fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
+                if terms_url is not None:
+                    fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
                 fp.write(config_theme)
 
         def deleteConfig():
@@ -1196,11 +1360,98 @@ class TabGroupView(QWidget, Ui_groupForm):
     def handleIPA(self, name, data):
         LOG.info("开始打包ipa")
 
+    def handleJson(self, name, data):
+        LOG.info("开始转换json")
+
+
     def getGameGroup(self):
         return self.game
 
     def getGamePath(self):
         return self.getProjectPath()
+
+
+class dSYMCrashBox(QGroupBox, Ui_crashBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setAcceptDrops(True)
+        self.initUI()
+
+    def initUI(self):
+        self.setTitle(crash_titles[CrashBoxEnum.dSYM])
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.dSYM]):
+            print("dSYMCrashBox: dragEnterEvent")
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        src_file = event.mimeData().text().replace("file:///", "")
+        if os.path.exists(src_file):
+            dSYM_file = TEMP_PATH + "/AAA.dSYM"
+            shutil.copyfile(src_file, dSYM_file)
+
+
+class ipsCrashBox(QGroupBox, Ui_crashBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setAcceptDrops(True)
+        self.initUI()
+
+    def initUI(self):
+        self.setTitle(crash_titles[CrashBoxEnum.ips])
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.ips]):
+            print("ipsCrashBox: dragEnterEvent")
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        src_file = event.mimeData().text().replace("file:///", "")
+        if os.path.exists(src_file):
+            crash_file = TEMP_PATH + "/AAA.crash"
+            shutil.copyfile(src_file, crash_file)
+
+
+# crash对话框
+class CrashDialog(QDialog, Ui_crashDialog):
+
+    def __init__(self):
+        super(CrashDialog, self).__init__()
+        self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
+        self.btn_parse.clicked.connect(self.parse)
+        ips = ipsCrashBox()
+        dSYM = dSYMCrashBox()
+        self.widListLayout.addWidget(ips)
+        self.widListLayout.addWidget(dSYM)
+
+    def parse(self):
+        crash_file = TEMP_PATH + "/AAA.crash"
+        dSYM_file = TEMP_PATH + "/AAA.dSYM"
+        if not os.path.exists(crash_file):
+            NotificationWindow.error(ERROR_TITLE, crash_file + " 文件不存在")
+        if not os.path.exists(dSYM_file):
+            NotificationWindow.error(ERROR_TITLE, dSYM_file + " 文件不存在")
+        # cmd = "export DEVELOPER_DIR=\"/Applications/XCode.app/Contents/Developer\""
+        # os.popen(cmd)
+        cmd = "find /Applications/Xcode.app -name symbolicatecrash -type f"
+        ret = os.popen(cmd)
+        ret = str(ret)
+        if ret and os.path.exists(ret):
+            symbolicatecrash = TEMP_PATH + "/symbolicatecrash"
+            shutil.copyfile(ret, symbolicatecrash)
+        cmd = "./symbolicatecrash " + crash_file + " " + dSYM_file + " > crash.log"
+        ret = os.popen(cmd)
+        print(ret)
 
 
 class DebugTools(QMainWindow, Ui_MainWindow):
@@ -1220,7 +1471,8 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         LOG.info("------------------------------------")
 
     def initUI(self):
-        self.openAction.triggered.connect(self.openConfig)
+        self.openConfigAction.triggered.connect(self.openConfig)
+        self.crashParseAction.triggered.connect(self.crashParse)
 
         for title in tab_group_titles:
             self.tabWidget.addTab(TabGroupView(title), title)
@@ -1234,6 +1486,12 @@ class DebugTools(QMainWindow, Ui_MainWindow):
 
     def openConfig(self):
         OpenDir(WORK_PATH)
+
+    def crashParse(self):
+        print("crashParse")
+        dialog = CrashDialog()
+        dialog.setWindowModality(Qt.ApplicationModal)
+        dialog.exec_()
 
     def closeWin(self):
         self.close()
