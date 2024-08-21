@@ -60,6 +60,5 @@ pyinstaller -n DebugTools -i ./icon/256.ico --windowed --onefile --clean --nocon
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
 
-## 联系方式
-- QQ : 1040392895 
-- EMAIL : mogoostudio@outlook.com 
+## 联系方式 
+- email：dadalepai@163.com  
