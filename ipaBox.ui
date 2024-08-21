@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>changeToJsonBox</class>
- <widget class="QGroupBox" name="changeToJsonBox">
+ <class>ipaBox</class>
+ <widget class="QGroupBox" name="ipaBox">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -26,7 +26,7 @@
    <item row="1" column="0">
     <widget class="QGroupBox" name="groupBox_4">
      <property name="title">
-      <string>转换配置</string>
+      <string>打包配置</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
@@ -65,7 +65,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Excel路径：</string>
+            <string>ipa导出路径：</string>
            </property>
           </widget>
          </item>
@@ -86,7 +86,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_select_excel">
+          <widget class="QPushButton" name="btn_select_ipa">
            <property name="text">
             <string>选择</string>
            </property>
@@ -131,7 +131,7 @@
             </size>
            </property>
            <property name="text">
-            <string>json导出路径：</string>
+            <string>pod存储路径：</string>
            </property>
           </widget>
          </item>
@@ -152,9 +152,68 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_select_json">
+          <widget class="QPushButton" name="btn_select_pod">
            <property name="text">
             <string>选择</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="widget_2" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>600</width>
+          <height>45</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>500</width>
+          <height>45</height>
+         </size>
+        </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>80</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>打包版本：</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTextEdit" name="textEdit_version">
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="verticalScrollBarPolicy">
+            <enum>Qt::ScrollBarAlwaysOff</enum>
+           </property>
+           <property name="textInteractionFlags">
+            <set>Qt::NoTextInteraction</set>
            </property>
           </widget>
          </item>
@@ -196,9 +255,9 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
-       <widget class="QPushButton" name="btn_change">
+       <widget class="QPushButton" name="btn_ipa">
         <property name="text">
-         <string>开始转换</string>
+         <string>开始打包</string>
         </property>
        </widget>
       </item>

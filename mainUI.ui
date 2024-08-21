@@ -59,10 +59,10 @@
    </property>
    <widget class="QMenu" name="menu">
     <property name="title">
-     <string>工具</string>
+     <string>文件</string>
     </property>
     <addaction name="openConfigAction"/>
-    <addaction name="crashParseAction"/>
+    <addaction name="action_about"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -74,6 +74,11 @@
   <action name="crashParseAction">
    <property name="text">
     <string>iOS崩溃解析</string>
+   </property>
+  </action>
+  <action name="action_about">
+   <property name="text">
+    <string>关于</string>
    </property>
   </action>
  </widget>

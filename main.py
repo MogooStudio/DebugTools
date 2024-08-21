@@ -4,29 +4,33 @@ import sys
 import re
 import plistlib
 import shutil
+import threading
 from enum import IntEnum
 
-import xlrd
 from PyQt5.QtGui import QPixmap, QDesktopServices, QIcon, QColor, QPainterPath, QPainter, QImage, QDragEnterEvent, \
     QDropEvent
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF, Qt
+from PyQt5.QtCore import QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF, Qt
 from PyQt5.QtWidgets import QSpacerItem, QListWidget, QLabel, QGridLayout, QHBoxLayout, QFileDialog, QDialog, \
     QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
     QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy
+from dexparser import AABParser, APKParser
 
-from changeToJsonBox import Ui_changeToJsonBox
+from aboutDialog import Ui_aboutDialog
+from ipaBox import Ui_ipaBox
+from ipsBox import Ui_ipsBox
 from mainUI import Ui_MainWindow
-from groupForm import Ui_groupForm
 from debugBox import Ui_debugBox
-from packageBox import Ui_packageBox
-from crashDialog import Ui_crashDialog
 from crashBox import Ui_crashBox
 
 from model import Model
 from log import LogHelper
+from packageCheckBox import Ui_packageCheckBox
+from projectForm import Ui_projectForm
+from toolsForm import Ui_toolsForm
 
 
+# 全局函数
 def MakeDir(dirPath):
     if dirPath and not os.path.exists(dirPath):
         os.makedirs(dirPath)
@@ -37,6 +41,36 @@ def OpenDir(dirPath):
         os.system("open " + dirPath)
     else:
         QDesktopServices.openUrl(QUrl(dirPath))
+
+
+def WritFile(filename, content):
+    try:
+        with open(filename, "w", encoding='utf-8') as fp:
+            fp.write(content)
+    except Exception as ex:
+        LOG.error("写入文件失败：{0}, {1}".format(filename, ex))
+
+
+def ReadFile(filename):
+    try:
+        with open(filename, "r", encoding='utf-8') as fp:
+            return fp.read()
+    except Exception as ex:
+        LOG.error("读取文件失败：{0}, {1}".format(filename, ex))
+
+
+def ReadPlist(filename):
+    try:
+        with open(filename, "rb", encoding='utf-8') as fp:
+            return plistlib.load(fp)
+    except Exception as ex:
+        LOG.error("读取plist失败：{0}, {1}".format(filename, ex))
+
+
+def CheckProject(path):
+    res_dir = path + "/res"
+    src_dir = path + "/src"
+    return path and path != "" and os.path.exists(res_dir) and os.path.exists(src_dir)
 
 
 # 全局变量
@@ -62,42 +96,32 @@ UI_HEIGHT = 900
 ITEM_WIDTH = 150
 ITEM_HEIGHT = 80
 
-UI_TITLE = "调试工具"
+UI_TITLE = "Mogoo工具集"
 ERROR_TITLE = "错误"
 WARN_TITLE = "警告"
 PROMPT_TITLE = "提示"
 
-
-# 全局函数
-def WritFile(filename, content):
-    try:
-        with open(filename, "w", encoding='utf-8') as fp:
-            fp.write(content)
-    except Exception as ex:
-        LOG.error("写入文件失败：{0}, {1}".format(filename, ex))
-
-
-def ReadFile(filename):
-    try:
-        with open(filename, "r", encoding='utf-8') as fp:
-            return fp.read()
-    except Exception as ex:
-        LOG.error("读取文件失败：{0}, {1}".format(filename, ex))
-
-
-def ReadPlist(filename):
-    try:
-        with open(filename, "rb", encoding='utf-8') as fp:
-            return plistlib.load(fp)
-    except Exception as ex:
-        LOG.error("读取plist失败：{0}, {1}".format(filename, ex))
-
+PACKAGE_CHECK_WORDS = [
+    'inmobi',
+]
 
 # 枚举
-class ItemEnum(IntEnum):
+class GameEnum(IntEnum):
+    none = 0
+    game1 = 1
+    game2 = 2
+    game3 = 3
+
+
+class ProjectItemEnum(IntEnum):
     debug = 1
     ipa = 2
-    change = 3
+
+
+class ToolsItemEnum(IntEnum):
+    check = 1
+    ipa = 2
+    ips = 3
 
 
 class ConfigEnum(IntEnum):
@@ -120,15 +144,13 @@ class PlatformEnum(IntEnum):
 
 
 class MessageError(IntEnum):
-    project_path = 1
+    not_exist_path = 1
     config_lua = 2
-    res_cdn_path = 3
-    config_dir = 4
-    not_exist_path = 5
 
 
 class MessageWarn(IntEnum):
     package_release = 1
+    check_running = 2
 
 
 class DebugBoxError(IntEnum):
@@ -142,12 +164,15 @@ class CrashBoxEnum(IntEnum):
     dSYM = 2
 
 
-tab_group_titles = ["game1", "game2", "game3"]
+project_item_titles = {
+    ProjectItemEnum.debug: "配置调试",
+    ProjectItemEnum.ipa: "ipa打包",
+}
 
-item_titles = {
-    ItemEnum.debug: "调试配置",
-    ItemEnum.ipa: "打包ipa",
-    ItemEnum.change: "转换json",
+tools_item_titles = {
+    ToolsItemEnum.check: "敏感词检测",
+    ToolsItemEnum.ipa: "ipa打包",
+    ToolsItemEnum.ips: "崩溃解析",
 }
 
 crash_titles = {
@@ -193,16 +218,14 @@ debug_key = {
 }
 
 message_error = {
-    MessageError.project_path: "路径不正确，请重新设置",
     MessageError.config_lua: "配置文件selfConfig不存在",
-    MessageError.res_cdn_path: "路径不正确，请重新设置",
-    MessageError.config_dir: "配置文件路径不正确",
     MessageError.not_exist_path: "路径不存在",
 
 }
 
 message_warn = {
     MessageWarn.package_release: "请确认是否打包release包并勾选必选项",
+    MessageWarn.check_running: "敏感词扫描中...",
 }
 
 hotupdate_tag = {
@@ -212,9 +235,9 @@ hotupdate_tag = {
 }
 
 download_url = {
-    "game1": "http://192.168.1.201/slots_assets/101/",
-    "game2": "http://192.168.1.201/slots_assets/102/",
-    "game3": "http://192.168.1.201/slots_assets/103/",
+    "game1": "http://192.168.1.113/slots_assets/101/",
+    "game2": "http://192.168.1.19/slots_assets/102/",
+    "game3": "http://192.168.1.113/slots_assets/103/",
 }
 
 server_http_url = {
@@ -721,9 +744,9 @@ class BaseDialog(QDialog):
         self.name = name
         self.width = width
         self.height = height
-        self.initUI()
+        self.__init_UI()
 
-    def initUI(self):
+    def __init_UI(self):
         self.setWindowTitle(self.name)
         self.resize(self.width, self.height)
 
@@ -778,7 +801,143 @@ class BaseBox(QGroupBox):
         return
 
 
-# 调试项目框
+class dSYMCrashBox(QGroupBox, Ui_crashBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setAcceptDrops(True)
+        self.initUI()
+
+    def initUI(self):
+        self.setTitle(crash_titles[CrashBoxEnum.dSYM])
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.dSYM]):
+            print("dSYMCrashBox: dragEnterEvent")
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        src_file = event.mimeData().text().replace("file:///", "")
+        if os.path.exists(src_file):
+            dSYM_file = TEMP_PATH + "/AAA.dSYM"
+            shutil.copyfile(src_file, dSYM_file)
+
+
+class IpsBox(QGroupBox, Ui_ipsBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.initUI()
+
+    def initUI(self):
+        self.setTitle(crash_titles[CrashBoxEnum.ips])
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.ips]):
+            print("ipsCrashBox: dragEnterEvent")
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        src_file = event.mimeData().text().replace("file:///", "")
+        if os.path.exists(src_file):
+            crash_file = TEMP_PATH + "/AAA.crash"
+            shutil.copyfile(src_file, crash_file)
+
+
+# 敏感词检测框
+class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.__init_UI()
+        self.__init_data()
+
+    def __init_UI(self):
+        self.pushButton.clicked.connect(self.__action_event_select_package)
+        self.btn_check.clicked.connect(self.__action_event_check_start)
+
+    def __init_data(self):
+        self.package_path = None
+        self.is_bundle = False
+        self.is_running = False
+        self.result = ""
+
+    def __output_result(self, message):
+        self.result = self.result + message + "\n"
+        self.label.setText(self.result)
+
+    def __check_file(self, Parser):
+        result = []
+        parser = Parser(filedir=self.package_path)
+        for filename in parser.zfile.namelist():
+            for target_str in PACKAGE_CHECK_WORDS:
+                if filename.find(target_str) >= 0:
+                    result.append(filename)
+                    self.__output_result(f"包含敏感词的文件:{filename} 字段:{target_str}")
+                if os.path.splitext(filename)[1] != '.dex':
+                    with parser.zfile.open(filename) as f:
+                        content = f.read()
+                        if content.find(target_str.encode()) >= 0:
+                            result.append(filename)
+                            self.__output_result(f"包含敏感词的文件:{filename} 字段:{target_str}")
+        assert parser.is_multidex is True
+        for dex_filename in parser.get_all_dex_filenames():
+            dex_obj = parser.get_dex(dex_filename)
+            string_list = dex_obj.get_strings()
+            for string_item in string_list:
+                for target_str in PACKAGE_CHECK_WORDS:
+                    if str(string_item).find(target_str) >= 0:
+                        result.append(string_item)
+                        self.__output_result(f"包含敏感词的dex:{dex_filename} 字段:{string_item}")
+        return result
+
+    def __check_thread(self):
+        self.__output_result("扫描开始...")
+        parser = AABParser if self.is_bundle else APKParser
+        files = self.__check_file(parser)
+        if len(files) < 1:
+            self.__output_result("扫描结束，一切正常")
+        else:
+            self.__output_result("扫描结束...")
+        self.is_running = False
+
+    def __action_event_select_package(self):
+        filepath, filetype = QFileDialog.getOpenFileName(self, '打开文件', "", 'APK (*.apk);;AAB (*.aab)')
+        if filepath:
+            self.package_path = filepath
+            self.textEdit.setPlainText(filepath)
+            self.is_bundle = (filetype and filetype.find('APK') != 0)
+            print(f"{self.package_path =}{self.is_bundle =}")
+
+    def __action_event_check_start(self):
+        if self.is_running:
+            NotificationWindow.error(WARN_TITLE, message_warn[MessageWarn.check_running])
+            return
+        self.is_running = True
+        self.result = ""
+        self.sub_thread = threading.Thread(target=self.__check_thread, name="sub_thread")
+        self.sub_thread.start()
+
+
+# 崩溃解析框
+class CrashParseBox(QGroupBox, Ui_crashBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.__init_UI()
+
+    def __init_UI(self):
+        print("initUI")
+
+
+# 项目调试框
 class DebugBox(BaseBox, Ui_debugBox):
 
     def __init__(self, parent, name):
@@ -786,11 +945,11 @@ class DebugBox(BaseBox, Ui_debugBox):
         self.gameCdn = []
         self.resCdn = []
         self.setupUi(self)
-        self.resetInfo()
-        self.initUI()
-        self.updateUI()
+        self.__reset_info()
+        self.__init_UI()
+        self.__update_UI()
 
-    def initUI(self):
+    def __init_UI(self):
         self.btn_change_config.clicked.connect(self.onClickedChangeConfig)
         self.btn_del_config.clicked.connect(self.onClickedDeleteConfig)
         self.btn_open_config.clicked.connect(self.onClickedOpenConfigDir)
@@ -806,7 +965,7 @@ class DebugBox(BaseBox, Ui_debugBox):
         self.btn_add_res.clicked.connect(self.onClickedAddRes)
         self.btn_config_res.clicked.connect(self.onClickedOpenResConfig)
 
-    def updateUI(self):
+    def __update_UI(self):
         self.no_pad.setChecked(not self.selectPad)
         self.yes_pad.setChecked(self.selectPad)
         self.no_dialog.setChecked(not self.selectDialog)
@@ -819,22 +978,22 @@ class DebugBox(BaseBox, Ui_debugBox):
         self.box_game_package.setCurrentIndex(self.indexGamePackage)
         self.cb_release_flag.setChecked(self.selectedReleaseFlag)
 
-    def resetInfo(self):
+    def __reset_info(self):
         self.selectPad = False
         self.selectDialog = False
         self.selectDownload = False
         self.selectSplunk = False
-        self.selectHotupdate = False
-        self.selectPackupdate = False
+        self.selectHotUpdate = False
+        self.selectPackUpdate = False
         self.indexServerPath = ServerUrlEnum.offline_test
         self.indexGamePackage = PlatformEnum.android
         self.selectedReleaseFlag = False
 
     def checkPathAndCallback(self, path, callback):
-        if self.parent.checkProjectPath(path):
+        if CheckProject(path):
             callback()
         else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
 
     def saveConfig(self):
         data = self.getData()
@@ -937,7 +1096,7 @@ class DebugBox(BaseBox, Ui_debugBox):
                 msg = "添加资源执行完毕，资源名={0}".format(dir_name)
                 NotificationWindow.success(PROMPT_TITLE, msg, callback=lambda: LOG.info(msg))
             else:
-                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.res_cdn_path])
+                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
 
         self.checkPathAndCallback(path, endFunc)
 
@@ -1064,11 +1223,11 @@ class DebugBox(BaseBox, Ui_debugBox):
         }
 
 
-# 打包ipa框
-class PackageBox(BaseBox, Ui_packageBox):
+# ipa打包框
+class IpaBox(QGroupBox, Ui_ipaBox):
 
-    def __init__(self, parent, name):
-        super(PackageBox, self).__init__(parent, name)
+    def __init__(self):
+        super().__init__()
         self.setupUi(self)
         self.initUI()
 
@@ -1111,135 +1270,79 @@ class PackageBox(BaseBox, Ui_packageBox):
         if path and path != "" and os.path.isdir(path):
             callback()
         else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
 
-# 转换
-class ChangeToJsonBox(BaseBox, Ui_changeToJsonBox):
 
-    def __init__(self, parent, name):
-        super(ChangeToJsonBox, self).__init__(parent, name)
+# 项目工具标签
+class ToolsTab(QWidget, Ui_toolsForm):
+
+    box_clz = {
+        ToolsItemEnum.check: PackageCheckBox,
+        ToolsItemEnum.ipa: IpaBox,
+        ToolsItemEnum.ips: CrashParseBox,
+    }
+
+    def __init__(self):
+        super(ToolsTab, self).__init__()
         self.setupUi(self)
-        self.initUI()
+        self.__init_UI()
 
-    def initUI(self):
-        self.btn_select_excel.clicked.connect(self.onClickedSelectPathExcel)
-        self.btn_select_json.clicked.connect(self.onClickedSelectPathJson)
-        self.btn_change.clicked.connect(self.onClickedChange)
+    def __init_UI(self):
+        itemEnum = ToolsItemEnum(1)
+        for name in tools_item_titles.values():
+            # item
+            item = ListItem(name)
+            item.setSizeHint(QSize(ITEM_WIDTH, ITEM_HEIGHT))
+            self.listWidget.addItem(item)
+            # box
+            box = self.box_clz[itemEnum]()
+            self.stackedWidget.addWidget(box)
+            itemEnum += 1
+        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
+        self.listWidget.setCurrentRow(0)
 
-    def onClickedSelectPathExcel(self):
-        path = QFileDialog.getExistingDirectory(self, "选择Exel文件", self.path or sys.path[0])
-        tmpPath = str(path)
 
-        def endFunc():
-            self.textEdit_ipa.setText(tmpPath)
-
-        self.checkPathAndCallback(tmpPath, endFunc)
-
-    def onClickedSelectPathJson(self):
-        path = QFileDialog.getExistingDirectory(self, "选择json存放文件夹", self.path or sys.path[0])
-        tmpPath = str(path)
-
-        def endFunc():
-            self.textEdit_pod.setText(tmpPath)
-
-        self.checkPathAndCallback(tmpPath, endFunc)
-
-    def getExcelPath(self):
-        return self.textEdit_ipa.toPlainText()
-
-    def getOutputPath(self):
-        return self.textEdit_pod.toPlainText()
-
-    def onClickedChange(self):
-        excel_path = self.getExcelPath()
-        def change():
-            for excel in os.listdir(excel_path):
-                if excel.find("~$") == -1:
-                    if excel.endswith(".xlsx") | excel.endswith(".xls"):
-                        ui_path = os.path.join(excel_path, excel)
-                        fPath, fName = os.path.split(ui_path)
-                        if os.path.isfile(ui_path):
-                            self.makeTranslateData(ui_path, fPath, fName)
-        self.checkPathAndCallback(excel_path, change)
-
-    def makeTranslateData(self, fileName, fPath, fname):
-        table_data = xlrd.open_workbook(fileName)
-        count = 0;
-        for i in range(len(table_data.sheets())):
-            sheetnewTranslate = table_data.sheet_by_index(i)
-            rowNew = sheetnewTranslate.nrows  # 行数
-            colNew = sheetnewTranslate.ncols  # 列数
-
-            jsonName = fPath + "/" + sheetnewTranslate.name + ".lua"
-            f = open(jsonName, 'w+')
-            f.write("Config = {\n")
-            allStr = ""
-            for i in range(rowNew):
-                if i != 0:
-                    tempStr = ""
-                    for k in range(colNew):
-                        if k != 0:
-                            values = sheetnewTranslate.cell_value(i, k)
-                            if k == 1:
-                                tempStr = "{" + str(int(values))
-                            else:
-                                tempStr = tempStr + "," + str(int(values))
-                    tempStr = "\t" + tempStr + "}"
-                    allStr = allStr + tempStr + ",\n"
-            f.write(allStr)
-            f.write("}")
-            f.close()
-            count = count + 1
-        if count == len(table_data.sheets()):
-            NotificationWindow.error(PROMPT_TITLE, "转化成功！")
-
-    def checkPathAndCallback(self, path, callback):
-        if path and path != "" and os.path.isdir(path):
-            callback()
-        else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
-
-# game选择tab
-class TabGroupView(QWidget, Ui_groupForm):
+# 项目配置标签
+class ProjectTab(QWidget, Ui_projectForm):
     common_signal = pyqtSignal(str)
 
     box_clz = {
-        ItemEnum.debug: DebugBox,
-        ItemEnum.ipa: PackageBox,
-        ItemEnum.change: ChangeToJsonBox,
+        ProjectItemEnum.debug: DebugBox,
+        ProjectItemEnum.ipa: IpaBox,
     }
 
     json_path = WORK_PATH + "/{0}_data.json"
 
-    def __init__(self, game):
-        super(TabGroupView, self).__init__()
-        self.game = game
+    def __init__(self):
+        super(ProjectTab, self).__init__()
+        self.game = None
         self.box_handle = {
-            ItemEnum.debug: self.handleDebug,
-            ItemEnum.ipa: self.handleIPA,
-            ItemEnum.change: self.handleJson,
+            ProjectItemEnum.debug: self.handleDebug,
+            ProjectItemEnum.ipa: self.handleIPA,
         }
         self.boxs = []
         self.model = Model(self.json_path.format(self.game))
         self.setupUi(self)
-        self.initUI()
-        self.initData()
+        self.__init_UI()
+        self.__init_data()
 
-    def initData(self):
+    def __init_data(self):
+        self.indexGame = GameEnum(0)
         data_game = self.model.load()
-        if not data_game:
-            return
-        path = data_game['path']
-        self.setProjectPath(path)
-        for box in self.boxs:
-            data_item = data_game.get(box.getName())
-            box.setData(data_item)
-            box.setPath(path)
-            box.updateInfo()
+        if data_game:
+            self.project_path = data_game['path']
+            self.__set_project_path(self.project_path)
+            for box in self.boxs:
+                data_item = data_game.get(box.getName())
+                box.setData(data_item)
+                box.setPath(self.project_path)
+                box.updateInfo()
+        else:
+            self.project_path = ""
 
-    def initUI(self):
-        itemEnum = ItemEnum(1)
-        for name in item_titles.values():
+    def __init_UI(self):
+        itemEnum = ProjectItemEnum(1)
+        for name in project_item_titles.values():
             # item
             item = ListItem(name)
             item.setSizeHint(QSize(ITEM_WIDTH, ITEM_HEIGHT))
@@ -1252,49 +1355,47 @@ class TabGroupView(QWidget, Ui_groupForm):
             itemEnum += 1
         self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
         self.listWidget.setCurrentRow(0)
-        self.btn_setting.clicked.connect(self.onClickedSetProjectPath)
-        self.btn_open.clicked.connect(self.onClickedOpenProjectPath)
+        self.btn_setting.clicked.connect(self.__action_event_set_project_path)
+        self.btn_open.clicked.connect(self.__action_event_open_project_path)
+        self.comboBox.currentIndexChanged.connect(self.__action_event_select_game)
+        self.comboBox.setCurrentIndex(0)
 
-    def onClickedSetProjectPath(self):
-        path = QFileDialog.getExistingDirectory(self, "选择项目文件夹", sys.path[0])
-        tmpPath = str(path)
+    def __action_event_select_game(self, index):
+        self.indexGame = index
+        print(f"{self.indexGame =}")
 
-        def endFunc():
-            self.textEdit_path.setText(tmpPath)
-            for box in self.boxs:
-                box.setPath(tmpPath)
+    def __action_event_set_project_path(self):
+        dir_path = QFileDialog.getExistingDirectory(self, "选择项目文件夹", sys.path[0])
+        if dir_path:
+            def endFunc():
+                self.project_path = dir_path
+                self.textEdit_path.setText(dir_path)
+                for box in self.boxs:
+                    box.setPath(dir_path)
+            self.__check_and_callback(dir_path, endFunc)
 
-        self.checkPathAndCallback(tmpPath, endFunc)
+    def __action_event_open_project_path(self):
+        self.__check_and_callback(self.project_path, lambda: OpenDir(self.project_path))
 
-    def onClickedOpenProjectPath(self):
-        path = self.getProjectPath()
-        self.checkPathAndCallback(path, lambda: OpenDir(path))
-
-    def checkPathAndCallback(self, path, callback):
-        if self.checkProjectPath(path):
+    def __check_and_callback(self, path, callback):
+        if CheckProject(path):
             callback()
         else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.project_path])
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
 
-    def checkProjectPath(self, path):
-        res_dir = path + "/res"
-        src_dir = path + "/src"
-        return path and path != "" and os.path.exists(res_dir) and os.path.exists(src_dir)
-
-    def setProjectPath(self, path):
+    def __set_project_path(self, path):
         text = path if path and path != "" else ""
         self.textEdit_path.setText(text)
 
-    def getProjectPath(self):
+    def __get_project_path(self):
         return self.textEdit_path.toPlainText()
 
     def handleDebug(self, cmd, name, data):
-        path = self.getProjectPath()
-        config_dir = path + debug_config_path[self.game]
+        config_dir = self.project_path + debug_config_path[self.game]
         config_lua = config_dir + "selfConfig.lua"
 
         def saveConfig():
-            self.model.save({name: data, "game": self.game, "path": path})
+            self.model.save({name: data, "game": self.game, "path": self.project_path})
 
             key = debug_key[ConfigEnum.pad]
             pad = "" if data[key] else "--"
@@ -1346,16 +1447,14 @@ class TabGroupView(QWidget, Ui_groupForm):
             if os.path.exists(config_dir):
                 OpenDir(config_dir)
             else:
-                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.config_dir])
+                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
 
         debug_handle = {
             DebugBoxError.save: saveConfig,
             DebugBoxError.delete: deleteConfig,
             DebugBoxError.open: openConfigDir,
         }
-
-        handle = debug_handle[cmd]
-        self.checkPathAndCallback(path, handle)
+        self.__check_and_callback(self.project_path, debug_handle[cmd])
 
     def handleIPA(self, name, data):
         LOG.info("开始打包ipa")
@@ -1368,101 +1467,37 @@ class TabGroupView(QWidget, Ui_groupForm):
         return self.game
 
     def getGamePath(self):
-        return self.getProjectPath()
+        return self.__get_project_path()
 
 
-class dSYMCrashBox(QGroupBox, Ui_crashBox):
-
-    def __init__(self):
-        super().__init__()
-        self.setAcceptDrops(True)
-        self.initUI()
-
-    def initUI(self):
-        self.setTitle(crash_titles[CrashBoxEnum.dSYM])
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.dSYM]):
-            print("dSYMCrashBox: dragEnterEvent")
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent):
-        src_file = event.mimeData().text().replace("file:///", "")
-        if os.path.exists(src_file):
-            dSYM_file = TEMP_PATH + "/AAA.dSYM"
-            shutil.copyfile(src_file, dSYM_file)
-
-
-class ipsCrashBox(QGroupBox, Ui_crashBox):
+# 关于对话框
+class AboutDialog(QDialog, Ui_aboutDialog):
 
     def __init__(self):
-        super().__init__()
-        self.setAcceptDrops(True)
-        self.initUI()
-
-    def initUI(self):
-        self.setTitle(crash_titles[CrashBoxEnum.ips])
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if event.mimeData().text().endswith(crash_suffix[CrashBoxEnum.ips]):
-            print("ipsCrashBox: dragEnterEvent")
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent):
-        src_file = event.mimeData().text().replace("file:///", "")
-        if os.path.exists(src_file):
-            crash_file = TEMP_PATH + "/AAA.crash"
-            shutil.copyfile(src_file, crash_file)
-
-
-# crash对话框
-class CrashDialog(QDialog, Ui_crashDialog):
-
-    def __init__(self):
-        super(CrashDialog, self).__init__()
+        super(AboutDialog, self).__init__()
         self.setupUi(self)
-        self.initUI()
-
-    def initUI(self):
-        self.btn_parse.clicked.connect(self.parse)
-        ips = ipsCrashBox()
-        dSYM = dSYMCrashBox()
-        self.widListLayout.addWidget(ips)
-        self.widListLayout.addWidget(dSYM)
-
-    def parse(self):
-        crash_file = TEMP_PATH + "/AAA.crash"
-        dSYM_file = TEMP_PATH + "/AAA.dSYM"
-        if not os.path.exists(crash_file):
-            NotificationWindow.error(ERROR_TITLE, crash_file + " 文件不存在")
-        if not os.path.exists(dSYM_file):
-            NotificationWindow.error(ERROR_TITLE, dSYM_file + " 文件不存在")
-        # cmd = "export DEVELOPER_DIR=\"/Applications/XCode.app/Contents/Developer\""
-        # os.popen(cmd)
-        cmd = "find /Applications/Xcode.app -name symbolicatecrash -type f"
-        ret = os.popen(cmd)
-        ret = str(ret)
-        if ret and os.path.exists(ret):
-            symbolicatecrash = TEMP_PATH + "/symbolicatecrash"
-            shutil.copyfile(ret, symbolicatecrash)
-        cmd = "./symbolicatecrash " + crash_file + " " + dSYM_file + " > crash.log"
-        ret = os.popen(cmd)
-        print(ret)
 
 
-class DebugTools(QMainWindow, Ui_MainWindow):
+# 工具集
+class MogooTools(QMainWindow, Ui_MainWindow):
+    tab_infos = [
+        {
+            "title": "项目配置",
+            "obj": ProjectTab,
+        },
+        {
+            "title": "项目工具",
+            "obj": ToolsTab,
+        }
+    ]
 
     def __init__(self):
-        super(DebugTools, self).__init__()
+        super(MogooTools, self).__init__()
         self.setupUi(self)
-        self.outInfo()
-        self.initUI()
+        self.__log_infomation_base()
+        self.__init_UI()
 
-    def outInfo(self):
+    def __log_infomation_base(self):
         LOG.info("------------------------------------")
         LOG.info("用户目录:{0}".format(USER_PATH))
         LOG.info("工作目录:{0}".format(WORK_PATH))
@@ -1470,12 +1505,14 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         LOG.info("操作系统:{0}".format(sys.platform))
         LOG.info("------------------------------------")
 
-    def initUI(self):
-        self.openConfigAction.triggered.connect(self.openConfig)
-        self.crashParseAction.triggered.connect(self.crashParse)
+    def __init_UI(self):
+        self.openConfigAction.triggered.connect(self.__action_event_open_config)
+        self.action_about.triggered.connect(self.__action_event_show_about)
 
-        for title in tab_group_titles:
-            self.tabWidget.addTab(TabGroupView(title), title)
+        # for item in self.tab_infos:
+        #     title = item['title']
+        #     self.tabWidget.addTab(item['obj'](), title)
+        self.tabWidget.addTab(ToolsTab(), "默认")
 
         self.resize(UI_WIDTH, UI_HEIGHT)
         frame = self.frameGeometry()
@@ -1484,28 +1521,27 @@ class DebugTools(QMainWindow, Ui_MainWindow):
         self.setWindowTitle(UI_TITLE)
         LOG.info("初始化UI成功")
 
-    def openConfig(self):
+    def __action_event_open_config(self):
         OpenDir(WORK_PATH)
 
-    def crashParse(self):
-        print("crashParse")
-        dialog = CrashDialog()
+    def __action_event_show_about(self):
+        dialog = AboutDialog()
         dialog.setWindowModality(Qt.ApplicationModal)
         dialog.exec_()
 
     def closeWin(self):
         self.close()
 
-    def destroy(self):
+    def destroy(self, **kwargs):
         self.close()
 
     def closeEvent(self, event):
         if IS_DEBUG_MODE:
             self.destroy()
         else:
-            self.closeUI(lambda: event.ignore())
+            self.__close_UI(lambda: event.ignore())
 
-    def closeUI(self, onerror):
+    def __close_UI(self, onerror):
         ret = QMessageBox.question(self, '消息框', "确定关闭程序？", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if ret == QMessageBox.Yes:
             self.destroy()
@@ -1515,8 +1551,8 @@ class DebugTools(QMainWindow, Ui_MainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon('./icon/128.ico'))
-    tools = DebugTools()
+    app.setWindowIcon(QIcon('./icon/256.ico'))
+    tools = MogooTools()
     tools.show()
     sys.exit(app.exec_())
 
