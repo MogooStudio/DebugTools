@@ -55,12 +55,6 @@ pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --nocon
 - 2021.12.17：增加消息框功能（pc演示）
 [![TixWUe.md.png](https://s4.ax1x.com/2021/12/17/TixWUe.md.png)](https://imgtu.com/i/TixWUe)
 
-- 2022.4.24：转换json功能 by fuwei（pc演示）
-[![L4stIO.md.png](https://s1.ax1x.com/2022/04/24/L4stIO.md.png)](https://imgtu.com/i/L4stIO)
-
-- 2022.4.24：ios崩溃分析功能（初版）（pc演示）
-[![L4sYdK.png](https://s1.ax1x.com/2022/04/24/L4sYdK.png)](https://imgtu.com/i/L4sYdK)
-
 - 2024.8.21：重构UI，增加游戏包敏感词检查功能
 [![pAitVpT.png](https://s21.ax1x.com/2024/08/21/pAitVpT.png)](https://imgse.com/i/pAitVpT)
 
