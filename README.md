@@ -1,9 +1,9 @@
 # DebugTools
- 项目内部工具-包含一些项目中实用工具
+ 使用python开发的工具集-包含项目中使用的工具
 
-- 调试项目
-- 上传资源
+- 游戏包敏感词检测
 - 打包ipa
+- 解析崩溃日志（开发中）
 
 # 感谢 [JetBrains](https://www.jetbrains.com/shop/eform/opensource) 的工具支持
 ![jetbrains](https://user-images.githubusercontent.com/3353611/119081825-6b381980-ba2f-11eb-85cc-002b466526ba.png)
@@ -11,8 +11,7 @@
 ## 开发环境
 - 软件
 ```
-Qt 5.12.2
-python 3.8
+python 3.10
 ```
 - 插件
 ```
@@ -29,7 +28,7 @@ python convert_ui
 
 - 打包
 ```
-pyinstaller -n DebugTools -i ./icon/128.ico --windowed --onefile --clean --noconfirm main.py
+pyinstaller -n DebugTools -i ./icon/256.ico --windowed --onefile --clean --noconfirm main.py
 ```
 
 # 开发日志
