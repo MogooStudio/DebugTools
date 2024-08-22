@@ -57,6 +57,11 @@ pyinstaller -n DebugTools -i ./icon/256.ico --windowed --onefile --clean --nocon
 - 2024.8.21：重构UI，增加游戏包敏感词检查功能
 [![pAitVpT.png](https://s21.ax1x.com/2024/08/21/pAitVpT.png)](https://imgse.com/i/pAitVpT)
 
+- 2024.8.22：增加三个功能（代码检测、资源加密检测、密钥生成）
+[![pAi79Rx.png](https://s21.ax1x.com/2024/08/22/pAi79Rx.png)](https://imgse.com/i/pAi79Rx)
+[![pAi7pJ1.png](https://s21.ax1x.com/2024/08/22/pAi7pJ1.png)](https://imgse.com/i/pAi7pJ1)
+[![pAi7SiR.png](https://s21.ax1x.com/2024/08/22/pAi7SiR.png)](https://imgse.com/i/pAi7SiR)
+
 ## 许可
 [MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
 
