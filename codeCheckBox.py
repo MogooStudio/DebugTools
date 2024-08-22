@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'packageCheckBox.ui'
+# Form implementation generated from reading ui file 'codeCheckBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
@@ -11,18 +11,18 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_packageCheckBox(object):
-    def setupUi(self, packageCheckBox):
-        packageCheckBox.setObjectName("packageCheckBox")
-        packageCheckBox.resize(1000, 600)
-        packageCheckBox.setMinimumSize(QtCore.QSize(0, 0))
+class Ui_codeCheckBox(object):
+    def setupUi(self, codeCheckBox):
+        codeCheckBox.setObjectName("codeCheckBox")
+        codeCheckBox.resize(1000, 600)
+        codeCheckBox.setMinimumSize(QtCore.QSize(0, 0))
         font = QtGui.QFont()
         font.setPointSize(12)
-        packageCheckBox.setFont(font)
-        packageCheckBox.setTitle("")
-        self.gridLayout_2 = QtWidgets.QGridLayout(packageCheckBox)
+        codeCheckBox.setFont(font)
+        codeCheckBox.setTitle("")
+        self.gridLayout_2 = QtWidgets.QGridLayout(codeCheckBox)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.groupBox = QtWidgets.QGroupBox(packageCheckBox)
+        self.groupBox = QtWidgets.QGroupBox(codeCheckBox)
         self.groupBox.setObjectName("groupBox")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -49,7 +49,7 @@ class Ui_packageCheckBox(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.verticalLayout_2.addWidget(self.scrollArea)
         self.gridLayout_2.addWidget(self.groupBox, 1, 0, 1, 1)
-        self.groupBox_5 = QtWidgets.QGroupBox(packageCheckBox)
+        self.groupBox_5 = QtWidgets.QGroupBox(codeCheckBox)
         self.groupBox_5.setMinimumSize(QtCore.QSize(300, 0))
         self.groupBox_5.setMaximumSize(QtCore.QSize(300, 16777215))
         self.groupBox_5.setObjectName("groupBox_5")
@@ -61,7 +61,7 @@ class Ui_packageCheckBox(object):
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem)
         self.gridLayout_2.addWidget(self.groupBox_5, 1, 1, 1, 1)
-        self.widget = QtWidgets.QWidget(packageCheckBox)
+        self.widget = QtWidgets.QWidget(codeCheckBox)
         self.widget.setMinimumSize(QtCore.QSize(0, 50))
         self.widget.setMaximumSize(QtCore.QSize(16777215, 50))
         self.widget.setObjectName("widget")
@@ -83,15 +83,15 @@ class Ui_packageCheckBox(object):
         self.horizontalLayout_2.addWidget(self.pushButton)
         self.gridLayout_2.addWidget(self.widget, 0, 0, 1, 2)
 
-        self.retranslateUi(packageCheckBox)
-        QtCore.QMetaObject.connectSlotsByName(packageCheckBox)
+        self.retranslateUi(codeCheckBox)
+        QtCore.QMetaObject.connectSlotsByName(codeCheckBox)
 
-    def retranslateUi(self, packageCheckBox):
+    def retranslateUi(self, codeCheckBox):
         _translate = QtCore.QCoreApplication.translate
-        packageCheckBox.setWindowTitle(_translate("packageCheckBox", "GroupBox"))
-        self.groupBox.setTitle(_translate("packageCheckBox", "输出结果"))
-        self.groupBox_5.setTitle(_translate("packageCheckBox", "功能列表"))
-        self.btn_check.setText(_translate("packageCheckBox", "开始检测"))
-        self.label_2.setText(_translate("packageCheckBox", "游戏包路径："))
-        self.textEdit.setPlaceholderText(_translate("packageCheckBox", "点击[打开]选择游戏包..."))
-        self.pushButton.setText(_translate("packageCheckBox", "打开"))
+        codeCheckBox.setWindowTitle(_translate("codeCheckBox", "GroupBox"))
+        self.groupBox.setTitle(_translate("codeCheckBox", "输出结果"))
+        self.groupBox_5.setTitle(_translate("codeCheckBox", "功能列表"))
+        self.btn_check.setText(_translate("codeCheckBox", "开始检测"))
+        self.label_2.setText(_translate("codeCheckBox", "代码路径："))
+        self.textEdit.setPlaceholderText(_translate("codeCheckBox", "点击[打开]选择代码根目录..."))
+        self.pushButton.setText(_translate("codeCheckBox", "打开"))

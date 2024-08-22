@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>packageCheckBox</class>
- <widget class="QGroupBox" name="packageCheckBox">
+ <class>resCheckBox</class>
+ <widget class="QGroupBox" name="resCheckBox">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -168,7 +168,7 @@
       <item>
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>游戏包路径：</string>
+         <string>资源路径：</string>
         </property>
        </widget>
       </item>
@@ -196,7 +196,7 @@
          <set>Qt::NoTextInteraction</set>
         </property>
         <property name="placeholderText">
-         <string>点击[打开]选择游戏包...</string>
+         <string>点击[打开]选择资源根目录...</string>
         </property>
        </widget>
       </item>
@@ -204,6 +204,54 @@
        <widget class="QPushButton" name="pushButton">
         <property name="text">
          <string>打开</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>加密key：</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QTextEdit" name="textEdit_2">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>25</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>25</height>
+         </size>
+        </property>
+        <property name="verticalScrollBarPolicy">
+         <enum>Qt::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="horizontalScrollBarPolicy">
+         <enum>Qt::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="placeholderText">
+         <string>填写加密key，长度10个字符</string>
         </property>
        </widget>
       </item>

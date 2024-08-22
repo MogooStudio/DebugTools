@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>packageCheckBox</class>
- <widget class="QGroupBox" name="packageCheckBox">
+ <class>codeCheckBox</class>
+ <widget class="QGroupBox" name="codeCheckBox">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -168,7 +168,7 @@
       <item>
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>游戏包路径：</string>
+         <string>代码路径：</string>
         </property>
        </widget>
       </item>
@@ -196,7 +196,7 @@
          <set>Qt::NoTextInteraction</set>
         </property>
         <property name="placeholderText">
-         <string>点击[打开]选择游戏包...</string>
+         <string>点击[打开]选择代码根目录...</string>
         </property>
        </widget>
       </item>

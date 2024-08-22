@@ -22,6 +22,11 @@
     <height>150</height>
    </size>
   </property>
+  <property name="font">
+   <font>
+    <pointsize>12</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
    <string>关于</string>
   </property>

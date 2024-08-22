@@ -1,32 +1,32 @@
 import base64
 import os
 import sys
-import re
 import plistlib
 import shutil
 import threading
 from enum import IntEnum
+from random import sample
 
 from PyQt5.QtGui import QPixmap, QDesktopServices, QIcon, QColor, QPainterPath, QPainter, QImage, QDragEnterEvent, \
-    QDropEvent
-from PyQt5.QtCore import QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF, Qt
+    QDropEvent, QIntValidator, QRegExpValidator
+from PyQt5.QtCore import QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF, Qt, QRegExp
 from PyQt5.QtWidgets import QSpacerItem, QListWidget, QLabel, QGridLayout, QHBoxLayout, QFileDialog, QDialog, \
     QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
-    QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy
+    QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy, QTextEdit
 from dexparser import AABParser, APKParser
 
 from aboutDialog import Ui_aboutDialog
+from codeCheckBox import Ui_codeCheckBox
 from ipaBox import Ui_ipaBox
 from ipsBox import Ui_ipsBox
+from keyRandomBox import Ui_keyRandomBox
 from mainUI import Ui_MainWindow
-from debugBox import Ui_debugBox
 from crashBox import Ui_crashBox
 
-from model import Model
 from log import LogHelper
 from packageCheckBox import Ui_packageCheckBox
-from projectForm import Ui_projectForm
+from resCheckBox import Ui_resCheckBox
 from toolsForm import Ui_toolsForm
 
 
@@ -91,7 +91,7 @@ log_config = {
 }
 LOG = LogHelper(log_config)
 
-UI_WIDTH = 1280
+UI_WIDTH = 1298
 UI_HEIGHT = 900
 ITEM_WIDTH = 150
 ITEM_HEIGHT = 80
@@ -105,47 +105,47 @@ PACKAGE_CHECK_WORDS = [
     'inmobi',
 ]
 
+RES_CHECK_WORDS = [
+    'inmobi',
+    'audit',
+    'Audit',
+    'AUDIT',
+    'auditing',
+    'AUDITING',
+    'hotupdate',
+    'hotUpdate',
+    'Hotupdate',
+    'HotUpdate',
+    'HOTUPDATE',
+    '热更',
+    'induce',
+    'Induce',
+    'INDUCE',
+    'Migrate',
+    'tort',
+    'TortShield',
+    'Tort',
+    '提审',
+    'NEW_GP_PACK',
+    '诱导',
+    '审核',
+    '侵权',
+]
+
 # 枚举
-class GameEnum(IntEnum):
-    none = 0
-    game1 = 1
-    game2 = 2
-    game3 = 3
-
-
-class ProjectItemEnum(IntEnum):
-    debug = 1
-    ipa = 2
-
-
 class ToolsItemEnum(IntEnum):
-    check = 1
-    ipa = 2
-    ips = 3
-
-
-class ConfigEnum(IntEnum):
-    pad = 1
-    dialog = 2
-    download = 3
-    splunk = 4
-    server = 5
-
-
-class ServerUrlEnum(IntEnum):
-    offline_test = 0
-    online_test = 1
-    online = 2
-
-
-class PlatformEnum(IntEnum):
-    android = 0
-    ios = 1
+    packageCheck = 1
+    codeCheck = 2
+    resCheck = 3
+    keyRandom = 4
+    ipa = 5
+    ips = 6
 
 
 class MessageError(IntEnum):
     not_exist_path = 1
     config_lua = 2
+    no_key = 3
 
 
 class MessageWarn(IntEnum):
@@ -153,24 +153,16 @@ class MessageWarn(IntEnum):
     check_running = 2
 
 
-class DebugBoxError(IntEnum):
-    save = 1
-    delete = 2
-    open = 3
-
-
 class CrashBoxEnum(IntEnum):
     ips = 1
     dSYM = 2
 
 
-project_item_titles = {
-    ProjectItemEnum.debug: "配置调试",
-    ProjectItemEnum.ipa: "ipa打包",
-}
-
 tools_item_titles = {
-    ToolsItemEnum.check: "敏感词检测",
+    ToolsItemEnum.packageCheck: "游戏包检测",
+    ToolsItemEnum.codeCheck: "代码检测",
+    ToolsItemEnum.resCheck: "资源加密检测",
+    ToolsItemEnum.keyRandom: "密钥生成",
     ToolsItemEnum.ipa: "ipa打包",
     ToolsItemEnum.ips: "崩溃解析",
 }
@@ -185,339 +177,16 @@ crash_suffix = {
     CrashBoxEnum.dSYM: ".dSYM",
 }
 
-game_package_names = {
-    "game1": ["googleAvidlyFirst", "ios_avidly"],
-    "game2": ["googleHummer2Third", "ios_cashmania"],
-    "game3": ["googleAvidly3First", "ios_vegasparty"],
-}
-
-game_path_tag = {
-    "game1": "101",
-    "game2": "102",
-    "game3": "103",
-}
-
-debug_config_path = {
-    "game1": "/src/",
-    "game2": "/src/",
-    "game3": "/src/framework/devMode/",
-}
-
-common_config_path = {
-    "game1": "/src/",
-    "game2": "/src/",
-    "game3": "/src/framework/",
-}
-
-debug_key = {
-    ConfigEnum.pad: "pad",
-    ConfigEnum.dialog: "dialog",
-    ConfigEnum.download: "download",
-    ConfigEnum.splunk: "splunk",
-    ConfigEnum.server: "server",
-}
-
 message_error = {
     MessageError.config_lua: "配置文件selfConfig不存在",
     MessageError.not_exist_path: "路径不存在",
-
+    MessageError.no_key: "key不存在",
 }
 
 message_warn = {
     MessageWarn.package_release: "请确认是否打包release包并勾选必选项",
     MessageWarn.check_running: "敏感词扫描中...",
 }
-
-hotupdate_tag = {
-    "game1": "runOnIosSimulator",
-    "game2": "runOnIosSimulator",
-    "game3": "hotUpdateSwitchOff",
-}
-
-download_url = {
-    "game1": "http://192.168.1.113/slots_assets/101/",
-    "game2": "http://192.168.1.19/slots_assets/102/",
-    "game3": "http://192.168.1.113/slots_assets/103/",
-}
-
-server_http_url = {
-    ServerUrlEnum.online: {
-        "game1": None,
-        "game2": None,
-        "game3": None,
-    },
-    ServerUrlEnum.offline_test: {
-        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/api.php",
-        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/api.php",
-        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/api.php",
-    },
-    ServerUrlEnum.online_test: {
-        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/api",
-        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/api",
-        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/api",
-    },
-}
-
-server_report_url = {
-    ServerUrlEnum.online: {
-        "game1": None,
-        "game2": None,
-        "game3": None,
-    },
-    ServerUrlEnum.offline_test: {
-        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/report.php",
-        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/report.php",
-        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/report.php",
-    },
-    ServerUrlEnum.online_test: {
-        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/report",
-        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/report",
-        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/report",
-    },
-}
-
-server_stat_url = {
-    ServerUrlEnum.online: {
-        "game1": None,
-        "game2": None,
-        "game3": None,
-    },
-    ServerUrlEnum.offline_test: {
-        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/stat.php",
-        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/stat.php",
-        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/stat.php",
-    },
-    ServerUrlEnum.online_test: {
-        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/stat",
-        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/stat",
-        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/stat",
-    },
-}
-
-server_terms_url = {
-    ServerUrlEnum.online: {
-        "game1": None,
-        "game2": None,
-        "game3": None,
-    },
-    ServerUrlEnum.offline_test: {
-        "game1": "http://192.168.1.201/slots_server/www/hummer/debug/terms.php",
-        "game2": "http://192.168.1.201/slots_server/www/hummer/debug/terms.php",
-        "game3": "http://192.168.1.201/hm-game3/www/game3/debug/terms.php",
-    },
-    ServerUrlEnum.online_test: {
-        "game1": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/terms",
-        "game2": "http://ec2-35-160-211-175.us-west-2.compute.amazonaws.com/hummer_game/terms",
-        "game3": "http://ec2-52-33-159-0.us-west-2.compute.amazonaws.com/terms",
-    },
-}
-
-config_theme = """
----------------------------默认筛选配置
-ALL_PASS = true
-SELECT_TAG = 0
-K_SPIN_MAX_FILTER_COUNT     = 2000
-
--------------------------------------------------------------
----------------------------Theme1 数据写死  debug_num至少从11开始
--------------------------------------------------------------
-G_ADJUST_SPIN_ITEM_LIST_FUNC = function( themeStatus, spinParam, spinReels )
-    if DEBUG_NUM1 == 11 then
-        spinReels[K_SPIN_ITEM_LIST][1][1] = 1
-        spinReels[K_SPIN_ITEM_LIST][1][2] = 1
-        spinReels[K_SPIN_ITEM_LIST][1][3] = 1
-
-        spinReels[K_SPIN_ITEM_LIST][2][1] = 1
-        spinReels[K_SPIN_ITEM_LIST][2][2] = 1
-        spinReels[K_SPIN_ITEM_LIST][2][3] = 1
-
-        spinReels[K_SPIN_ITEM_LIST][3][1] = 1
-        spinReels[K_SPIN_ITEM_LIST][3][2] = 1
-        spinReels[K_SPIN_ITEM_LIST][3][3] = 1
-
-        spinReels[K_SPIN_ITEM_LIST][4][1] = 1
-        spinReels[K_SPIN_ITEM_LIST][4][2] = 1
-        spinReels[K_SPIN_ITEM_LIST][4][3] = 1
-
-        spinReels[K_SPIN_ITEM_LIST][5][1] = 1
-        spinReels[K_SPIN_ITEM_LIST][5][2] = 1
-        spinReels[K_SPIN_ITEM_LIST][5][3] = 1
-    end
-end
--------------------------------------------------------------
----------------------------Theme1 数据筛选
--------------------------------------------------------------
-G_ADJUST_SPIN_RES_BY_FILTRATION = function( spinResult )
-    local SUM_WIN       = spinResult[K_SPIN_STAT_DATA][K_STAT_SUM_WIN]
-    local TOTAL_BET     = spinResult[K_SPIN_BASE_DATA][K_SPIN_TOTAL_BET]
-    local NORMAL        = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.NORMAL]
-    local FS_GAME       = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.FREE_SPIN_GAME]
-    local FREE_SPIN     = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.FREE_SPIN]
-    local RESPIN_NM     = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.NORMAL_RESPIN]
-    local VEGAS         = not spinResult[K_SPIN_STAT_DATA][K_STAT_FEATURE_DATA][K_STAT_FEATURE_TYPE.VEGAS_BONUS]
-    local LITTlE_WIN    = not (SUM_WIN / TOTAL_BET >= 5 and SUM_WIN / TOTAL_BET < 8)
-    local BIG_WIN       = not (SUM_WIN / TOTAL_BET >= 8 and SUM_WIN / TOTAL_BET < 15)
-    local MEGA_WIN      = not (SUM_WIN / TOTAL_BET >= 15 and SUM_WIN / TOTAL_BET < 25)
-    local SUPER_WIN     = not (SUM_WIN / TOTAL_BET >= 25 and SUM_WIN / TOTAL_BET < 40)
-    local EPIC_WIN      = not (SUM_WIN / TOTAL_BET >= 40 )
-    ------------------------------------------------------------------------------------------------------
-    -------------------恢复
-    if DEBUG_NUM1 == 0 then
-        ALL_PASS = true
-        SELECT_TAG = 0
-    end
-    -------------------什么都不中
-    if DEBUG_NUM1 == 1 then
-        ALL_PASS = false
-        SELECT_TAG = 1
-    end
-    -------------------free spin 
-    if DEBUG_NUM1 == 2 and FREE_SPIN then
-        ALL_PASS = true
-        SELECT_TAG = 2
-        return true
-    end
-    -------------------free spin game
-    if DEBUG_NUM1 == 3 and FS_GAME then
-        ALL_PASS = true
-        SELECT_TAG = 3
-        return true
-    end
-    -------------------normal respin
-    if DEBUG_NUM1 == 4 and RESPIN_NM then
-        ALL_PASS = true
-        SELECT_TAG = 4
-        return true
-    end
-    -------------------vegas respin
-    if DEBUG_NUM1 == 5 and VEGAS then
-        ALL_PASS = true
-        SELECT_TAG = 5
-        return true
-    end
-    -------------------little win  5-8 mul
-    if DEBUG_NUM1 == 6 and (LITTlE_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
-        return true
-    end
-    -------------------big win  8-15 mul
-    if DEBUG_NUM1 == 7 and (BIG_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
-        return true
-    end
-    -------------------mega win  15-25 mul
-    if DEBUG_NUM1 == 8 and (MEGA_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
-        return true
-    end
-    -------------------super win  25-40 mul
-    if DEBUG_NUM1 == 9 and (SUPER_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
-        return true
-    end
-    -------------------epic win  40+ mul
-    if DEBUG_NUM1 == 10 and (EPIC_WIN or not FREE_SPIN or not FS_GAME or not VEGAS) then
-        return true
-    end
-    return false
-end 
-
--------------------------------------------------------------
----------------------------Theme2 数据写死
--------------------------------------------------------------
-DEBUG_GET_CHEAT_STOP_DATA = function()
-    --测试环境下且白名单用户
-    if not appDebugMode and not Config.whiteTag then
-        return nil
-    end
-    local cheat_data = {
-        [1] = {
-            {
-                 [1] = {
-                    {3,2,3},
-                    {"s","g",4},
-                    {"s",2,2},
-                    {"s","g",6},
-                    {2,2,1},
-                },
-            }
-        },
-    }
-    if DEBUG_NUM1 and DEBUG_NUM1 == 11 then
-        local result = cheat_data[1][1]
-        return table.copy(result)
-    end
-    return nil
-end
--------------------------------------------------------------
----------------------------Theme2 数据筛选
--------------------------------------------------------------
-DEBUG_PANEL_CHEAT_FILTER = function(spinResult)
-    --测试环境下且白名单用户
-    if not appDebugMode and not Config.whiteTag then
-        return nil
-    end
-    if not spinResult or next(spinResult) == nil then
-        return false
-    end
-    local gameState = spinResult["gameState"]
-    if not gameState then
-        return false
-    end
-    if gameState ~= "base" then
-        return false
-    end
-    local SUM_WIN       = spinResult["winAmount"]
-    local TOTAL_BET     = spinResult["betData"]
-    local FREE_SPIN     = not spinResult["freeGameData"] or not spinResult["freeGameData"]["is_active"]
-    local FS_GAME       = not spinResult["jackpotGameData"]
-    local VEGAS         = not (spinResult["featureGameData"] and spinResult["featureGameData"]["respin"] and spinResult["featureGameData"]["respin"]["is_active"])
-    local JACKPOT       = not (spinResult["specialSymbolData"] and spinResult["specialSymbolData"]["r"] and spinResult["specialSymbolData"]["r"]["triggerID"])
-    local LITTlE_WIN    = SUM_WIN / TOTAL_BET < 5 or SUM_WIN / TOTAL_BET > 8
-    local BIG_WIN       = SUM_WIN / TOTAL_BET < 8   or SUM_WIN / TOTAL_BET > 15
-    local MEGA_WIN      = SUM_WIN / TOTAL_BET < 15  or SUM_WIN / TOTAL_BET > 25
-    local SUPER_WIN     = SUM_WIN / TOTAL_BET < 25  or SUM_WIN / TOTAL_BET > 40
-    local EPIC_WIN      = SUM_WIN / TOTAL_BET < 40 
-
-    -------------------什么都不中
-    if DEBUG_NUM1 == 1 and not FREE_SPIN and not FS_GAME and not VEGAS then
-        return true
-    end
-    -------------------free spin 
-    if DEBUG_NUM1 == 2 and FREE_SPIN then
-        return true
-    end
-    -------------------free spin game
-    if DEBUG_NUM1 == 3 and FS_GAME then
-        return true
-    end
-    -------------------normal respin
-    if DEBUG_NUM1 == 4 and JACKPOT then
-        return true
-    end
-    -------------------vegas respin
-    if DEBUG_NUM1 == 5 and VEGAS then
-        return true
-    end
-    -------------------little win  5-8 mul
-    if DEBUG_NUM1 == 6 and LITTlE_WIN then
-        return true
-    end
-    -------------------big win  8-15 mul
-    if DEBUG_NUM1 == 7 and BIG_WIN then
-        return true
-    end
-    -------------------mega win  15-25 mul
-    if DEBUG_NUM1 == 8 and MEGA_WIN then
-        return true
-    end
-    -------------------super win  25-40 mul
-    if DEBUG_NUM1 == 9 and SUPER_WIN then
-        return true
-    end
-    -------------------epic win  40+ mul
-    if DEBUG_NUM1 == 10 and EPIC_WIN then
-        return true
-    end
-    return false
-end
-"""
 
 
 # 消息弹窗
@@ -849,6 +518,183 @@ class IpsBox(QGroupBox, Ui_ipsBox):
             shutil.copyfile(src_file, crash_file)
 
 
+# 密钥生成框
+class KeyRandomBox(QGroupBox, Ui_keyRandomBox):
+    random_string = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,.\/@*{}[]:'
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.__init_UI()
+        self.__init_data()
+
+    def __init_UI(self):
+        self.btn_check.clicked.connect(self.__action_event_key_random)
+        self.lineEdit.setValidator(QIntValidator(1, 65535))
+        self.lineEdit_2.setValidator(QIntValidator(1, 65535))
+        self.lineEdit_3.setValidator(QRegExpValidator(QRegExp("^[a-zA-Z0-9]+$")))
+
+    def __init_data(self):
+        self.result = ""
+
+    def __output_result(self, message):
+        self.result = self.result + message + "\n"
+        self.label.setText(self.result)
+
+    def __random_key(self, mark, letters, numbers):
+        try:
+            passkey = []
+            data = []
+            for i in range(numbers):
+                data.append(''.join(sample(self.random_string, letters)))
+                passkey.append(mark.join(data))
+                data = []
+            return passkey
+        except Exception as e:
+            LOG.error(e)
+
+    def __action_event_key_random(self):
+        self.result = ""
+        numbers = int(self.lineEdit.text())
+        mark = self.lineEdit_3.text()
+        letters = int(self.lineEdit_2.text())
+        keys = self.__random_key(mark, letters, numbers)
+        for key in keys:
+            self.__output_result(key)
+
+
+# 资源加密检测框
+class ResCheckBox(QGroupBox, Ui_resCheckBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.__init_UI()
+        self.__init_data()
+
+    def __init_UI(self):
+        self.pushButton.clicked.connect(self.__action_event_select_res)
+        self.btn_check.clicked.connect(self.__action_event_check_start)
+
+    def __init_data(self):
+        self.path = None
+        self.is_running = False
+        self.result = ""
+        self.HEAD = None
+
+    def __output_result(self, message):
+        self.result = self.result + message + "\n"
+        self.label.setText(self.result)
+
+    def __check_res(self, key):
+        result = []
+        for root, dirs, files in os.walk(self.path):
+            for filename in files:
+                if os.path.splitext(filename)[1].lower() != '.mp3':
+                    path = os.path.join(root, filename)
+                    with open(path, 'rb') as f:
+                        head = f.read(10)
+                        if key.encode() != head:
+                            result.append(path)
+                            self.__output_result(f"没有加密的文件:{path}")
+        return result
+
+    def __check_thread(self, key):
+        self.__output_result("扫描开始...")
+        files = self.__check_res(key)
+        if len(files) < 1:
+            self.__output_result("扫描结束，一切正常")
+        else:
+            self.__output_result("扫描结束...")
+        self.is_running = False
+
+    def __action_event_select_res(self):
+        path = QFileDialog.getExistingDirectory(self, "选取项目文件夹", self.path or sys.path[0])
+        LOG.info(f"{self.path =}")
+        if path:
+            self.path = path
+            self.textEdit.setPlainText(path)
+
+    def __action_event_check_start(self):
+        key = self.textEdit_2.toPlainText()
+        LOG.info(f"{key =}")
+        if not key or key== "" or len(key) != 10:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.no_key])
+            return
+        if self.is_running:
+            NotificationWindow.warning(WARN_TITLE, message_warn[MessageWarn.check_running])
+            return
+        self.is_running = True
+        self.result = ""
+        self.sub_thread = threading.Thread(target=self.__check_thread, name="sub_thread", args=(key,))
+        self.sub_thread.start()
+
+
+# 代码检测框
+class CodeCheckBox(QGroupBox, Ui_codeCheckBox):
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.__init_UI()
+        self.__init_data()
+
+    def __init_UI(self):
+        self.pushButton.clicked.connect(self.__action_event_select_src)
+        self.btn_check.clicked.connect(self.__action_event_check_start)
+
+    def __init_data(self):
+        self.path = None
+        self.is_running = False
+        self.result = ""
+
+    def __output_result(self, message):
+        self.result = self.result + message + "\n"
+        self.label.setText(self.result)
+
+    def __check_src(self):
+        result = []
+        for root, dirs, files in os.walk(self.path.replace("\\", "/")):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                for target_str in RES_CHECK_WORDS:
+                    if filepath.find(target_str) >= 0:
+                        result.append(filename)
+                        self.__output_result(f"包含敏感词的文件:{filepath} | 铭感词:{target_str}")
+                    if os.path.splitext(filename)[1] in ['.lua', '.txt', '.xml']:
+                        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read()
+                            if content.find(target_str) >= 0:
+                                result.append(filename)
+                                self.__output_result(f"包含敏感词的文件:{filename} | 铭感词:{target_str}")
+        return result
+
+    def __check_thread(self):
+        self.__output_result("扫描开始...")
+        files = self.__check_src()
+        if len(files) < 1:
+            self.__output_result("扫描结束，一切正常")
+        else:
+            self.__output_result("扫描结束...")
+        self.is_running = False
+
+    def __action_event_select_src(self):
+        path = QFileDialog.getExistingDirectory(self, "选取项目文件夹", self.path or sys.path[0])
+        LOG.info(f"{self.path =}")
+        if path:
+            self.path = path
+            self.textEdit.setPlainText(path)
+
+    def __action_event_check_start(self):
+        if self.is_running:
+            NotificationWindow.warning(WARN_TITLE, message_warn[MessageWarn.check_running])
+            return
+        self.is_running = True
+        self.result = ""
+        self.sub_thread = threading.Thread(target=self.__check_thread, name="sub_thread")
+        self.sub_thread.start()
+
+
 # 敏感词检测框
 class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
 
@@ -863,7 +709,7 @@ class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
         self.btn_check.clicked.connect(self.__action_event_check_start)
 
     def __init_data(self):
-        self.package_path = None
+        self.path = None
         self.is_bundle = False
         self.is_running = False
         self.result = ""
@@ -874,7 +720,7 @@ class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
 
     def __check_file(self, Parser):
         result = []
-        parser = Parser(filedir=self.package_path)
+        parser = Parser(filedir=self.path)
         for filename in parser.zfile.namelist():
             for target_str in PACKAGE_CHECK_WORDS:
                 if filename.find(target_str) >= 0:
@@ -909,15 +755,15 @@ class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
 
     def __action_event_select_package(self):
         filepath, filetype = QFileDialog.getOpenFileName(self, '打开文件', "", 'APK (*.apk);;AAB (*.aab)')
+        LOG.info(f"{self.path =}{self.is_bundle =}")
         if filepath:
-            self.package_path = filepath
+            self.path = filepath
             self.textEdit.setPlainText(filepath)
             self.is_bundle = (filetype and filetype.find('APK') != 0)
-            print(f"{self.package_path =}{self.is_bundle =}")
 
     def __action_event_check_start(self):
         if self.is_running:
-            NotificationWindow.error(WARN_TITLE, message_warn[MessageWarn.check_running])
+            NotificationWindow.warning(WARN_TITLE, message_warn[MessageWarn.check_running])
             return
         self.is_running = True
         self.result = ""
@@ -935,292 +781,6 @@ class CrashParseBox(QGroupBox, Ui_crashBox):
 
     def __init_UI(self):
         print("initUI")
-
-
-# 项目调试框
-class DebugBox(BaseBox, Ui_debugBox):
-
-    def __init__(self, parent, name):
-        super(DebugBox, self).__init__(parent, name)
-        self.gameCdn = []
-        self.resCdn = []
-        self.setupUi(self)
-        self.__reset_info()
-        self.__init_UI()
-        self.__update_UI()
-
-    def __init_UI(self):
-        self.btn_change_config.clicked.connect(self.onClickedChangeConfig)
-        self.btn_del_config.clicked.connect(self.onClickedDeleteConfig)
-        self.btn_open_config.clicked.connect(self.onClickedOpenConfigDir)
-        self.no_pad.toggled.connect(self.onSelectedPadBtn)
-        self.no_dialog.toggled.connect(self.onSelectedDialogBtn)
-        self.no_download.toggled.connect(self.onSelectedDownloadBtn)
-        self.no_splunk.toggled.connect(self.onSelectedSplunkBtn)
-        self.box_server_path.currentIndexChanged.connect(self.onSelectedServerPath)
-        self.box_game_package.setCurrentIndex(0)
-        self.box_game_package.currentIndexChanged.connect(self.onSelectedGamePackage)
-        self.btn_config_release1.clicked.connect(self.onClickedReleaseConfig1)
-        self.cb_release_flag.clicked.connect(self.onClickedReleaseFlag)
-        self.btn_add_res.clicked.connect(self.onClickedAddRes)
-        self.btn_config_res.clicked.connect(self.onClickedOpenResConfig)
-
-    def __update_UI(self):
-        self.no_pad.setChecked(not self.selectPad)
-        self.yes_pad.setChecked(self.selectPad)
-        self.no_dialog.setChecked(not self.selectDialog)
-        self.yes_dialog.setChecked(self.selectDialog)
-        self.no_download.setChecked(not self.selectDownload)
-        self.yes_download.setChecked(self.selectDownload)
-        self.no_splunk.setChecked(not self.selectSplunk)
-        self.yes_splunk.setChecked(self.selectSplunk)
-        self.box_server_path.setCurrentIndex(self.indexServerPath)
-        self.box_game_package.setCurrentIndex(self.indexGamePackage)
-        self.cb_release_flag.setChecked(self.selectedReleaseFlag)
-
-    def __reset_info(self):
-        self.selectPad = False
-        self.selectDialog = False
-        self.selectDownload = False
-        self.selectSplunk = False
-        self.selectHotUpdate = False
-        self.selectPackUpdate = False
-        self.indexServerPath = ServerUrlEnum.offline_test
-        self.indexGamePackage = PlatformEnum.android
-        self.selectedReleaseFlag = False
-
-    def checkPathAndCallback(self, path, callback):
-        if CheckProject(path):
-            callback()
-        else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
-
-    def saveConfig(self):
-        data = self.getData()
-        self.common_signal.emit(DebugBoxError.save, self.name, data)
-
-    def deleteConfig(self):
-        self.common_signal.emit(DebugBoxError.delete, self.name, self.getData())
-
-    def openConfig(self):
-        self.common_signal.emit(DebugBoxError.open, self.name, self.getData())
-
-    def onClickedChangeConfig(self):
-        def endFunc():
-            self.saveConfig()
-            msg = "修改配置执行完毕"
-            NotificationWindow.success(PROMPT_TITLE, msg, callback=lambda: LOG.info(msg))
-
-        self.checkPathAndCallback(self.path, endFunc)
-
-    def onClickedDeleteConfig(self):
-        def endFunc():
-            self.deleteConfig()
-
-        self.checkPathAndCallback(self.path, endFunc)
-
-    def onClickedOpenConfigDir(self):
-        def endFunc():
-            self.openConfig()
-
-        self.checkPathAndCallback(self.path, endFunc)
-
-    def onClickedReleaseConfig1(self):
-        def endFunc():
-            if not self.selectedReleaseFlag:
-                return QMessageBox.warning(self, WARN_TITLE, message_warn[MessageWarn.package_release], QMessageBox.Ok)
-            self.selectPad = False
-            self.selectDialog = False
-            self.selectDownload = False
-            self.selectSplunk = False
-            self.indexServerPath = ServerUrlEnum.online
-            self.updateUI()
-            self.setHotUpdateAndPackUpdateSwitch()
-            msg = "[屏蔽热更新|屏蔽资源包]执行完毕"
-            NotificationWindow.success(PROMPT_TITLE, msg, callback=lambda: LOG.info(msg))
-
-        self.checkPathAndCallback(self.path, endFunc)
-
-    def onClickedReleaseFlag(self):
-        self.selectedReleaseFlag = self.cb_release_flag.isChecked()
-
-    def onSelectedPadBtn(self):
-        self.selectPad = self.yes_pad.isChecked()
-
-    def onSelectedDialogBtn(self):
-        self.selectDialog = self.yes_dialog.isChecked()
-
-    def onSelectedDownloadBtn(self):
-        self.selectDownload = self.yes_download.isChecked()
-
-    def onSelectedSplunkBtn(self):
-        self.selectSplunk = self.yes_splunk.isChecked()
-
-    def onSelectedServerPath(self, index):
-        self.indexServerPath = index
-
-    def onSelectedGamePackage(self, index):
-        self.indexGamePackage = index
-        self.updateGamePackageList()
-
-    def onClickedAddRes(self):
-        path = self.path
-        game = self.parent.getGameGroup()
-
-        def endFunc():
-            res_path = QFileDialog.getExistingDirectory(self, "选取指定文件夹", path)
-            dir_name = str(res_path)
-            res_cdn = path + "/res_cdn"
-            game_cdn = path + "/res_game/" + game + "/cdn"
-            res_flag = dir_name.find(res_cdn) >= 0
-            game_flag = dir_name.find(game_cdn) >= 0
-            if dir_name and dir_name != "" and os.path.exists(dir_name) \
-                    and dir_name != res_cdn and dir_name != game_cdn \
-                    and (res_flag or game_flag):
-                old_str = res_cdn + "/"
-                dir_name = dir_name.replace(old_str, "")
-                old_str = game_cdn + "/"
-                dir_name = dir_name.replace(old_str, "")
-                QListWidgetItem(dir_name, self.package_list_widget)
-
-                if res_flag:
-                    self.resCdn.append(dir_name)
-                if game_flag:
-                    self.gameCdn.append(dir_name)
-
-                packages = game_package_names[game]
-                package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
-                with open(package_config, "w") as fp:
-                    fp.write("game_cdn=" + ":".join(self.gameCdn) + "\n")
-                    fp.write("res_cdn=" + ":".join(self.resCdn) + "\n")
-                msg = "添加资源执行完毕，资源名={0}".format(dir_name)
-                NotificationWindow.success(PROMPT_TITLE, msg, callback=lambda: LOG.info(msg))
-            else:
-                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
-
-        self.checkPathAndCallback(path, endFunc)
-
-    def onClickedOpenResConfig(self):
-        path = self.path
-
-        def endFunc():
-            game = self.parent.getGameGroup()
-            packages = game_package_names[game]
-            package_config = path + "/res_game/config/" + packages[self.indexGamePackage]
-            OpenDir(package_config)
-
-        self.checkPathAndCallback(path, endFunc)
-
-    def getCdn(self, properties):
-        gameCdn = []
-        resCdn = []
-        if os.path.isfile(properties):
-            count = 1
-            with open(properties, 'r') as f:
-                for line in f.readlines():
-                    if count == 1:
-                        items = line.split('=')[1].replace("\n", "")
-                        gameCdn = items.split(':')
-                    if count == 2:
-                        items = line.split('=')[1].replace("\n", "")
-                        resCdn = items.split(':')
-                    count += 1
-        return gameCdn, resCdn
-
-    def updateGamePackageList(self):
-        self.gameCdn.clear()
-        self.resCdn.clear()
-        self.package_list_widget.clear()
-        path = self.path
-        if path and path != "":
-            game = self.parent.getGameGroup()
-            packages = game_package_names[game]
-            package_config = path + "/res_game/config/" + packages[self.indexGamePackage] + "/config.properties"
-            self.gameCdn, self.resCdn = self.getCdn(package_config)
-            for game in self.gameCdn:
-                if game and game != "":
-                    QListWidgetItem(game, self.package_list_widget)
-            for res in self.resCdn:
-                if res and res != "":
-                    QListWidgetItem(res, self.package_list_widget)
-
-    def setHotUpdateAndPackUpdateSwitch(self):
-        path = self.path
-
-        def replaceSwitch(lua_file):
-            if os.path.exists(lua_file):
-                content = ReadFile(lua_file)
-                content = re.sub(r"Native_path and Native_path.hotUpdateSwitchOff", "true", content)
-                content = re.sub(r"Native_path and Native_path.runOnIosSimulator", "true", content)
-                WritFile(lua_file, content)
-
-        main_lua = path + "/src/main.lua"
-        replaceSwitch(main_lua)
-        pack_lua = path + "/src/framework/pack/PackUpdateControl.lua"
-        replaceSwitch(pack_lua)
-
-    def setVersionInfo(self):
-        path = self.path
-        if path and path != "":
-            game = self.parent.getGameGroup()
-            package = game_package_names[game]
-            # android gp
-            version, git_version = "nil", "nil"
-            config_plist = path + common_config_path[game] + "config.plist"
-            if os.path.exists(config_plist):
-                content = ReadPlist(config_plist)
-                git_version = content["gitVersion"] if content else "nil"
-            self.lab_git_android.setText(git_version)
-            config_platform = path + "/res_game/config/" + package[0] + "/platformConfig.lua"
-            if os.path.exists(config_platform):
-                content = ReadFile(config_platform)
-                match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
-                version = match_obj.group(1) if match_obj else "nil"
-            self.lab_code_android.setText(version)
-            # ios
-            config_platform = path + "/res_game/config/" + package[1] + "/platformConfig.lua"
-            if os.path.exists(config_platform):
-                content = ReadFile(config_platform)
-                match_obj = re.search(r"Config\.gitVersion\s*=\s*\"([^\"]*)\"", content)
-                git_version = match_obj.group(1) if match_obj else "nil"
-                match_obj = re.search(r"Config\.version\s*=\s*\"(\d*\.\d*)\"", content)
-                version = match_obj.group(1) if match_obj else "nil"
-            self.lab_git_ios.setText(git_version)
-            self.lab_code_ios.setText(version)
-
-    def setResInfo(self):
-        path = self.path
-        self.box_game_package.clear()
-        if path and path != "":
-            game = self.parent.getGameGroup()
-            platformEnum = PlatformEnum.android
-            for package_name in game_package_names[game]:
-                self.box_game_package.insertItem(platformEnum, package_name)
-                platformEnum += 1
-
-    def updateInfo(self):
-        data = self.data
-        key = debug_key[ConfigEnum.pad]
-        self.selectPad = data[key]
-        key = debug_key[ConfigEnum.dialog]
-        self.selectDialog = data[key]
-        key = debug_key[ConfigEnum.download]
-        self.selectDownload = data[key]
-        key = debug_key[ConfigEnum.splunk]
-        self.selectSplunk = data[key]
-        key = debug_key[ConfigEnum.server]
-        self.indexServerPath = data[key]
-        self.updateUI()
-        self.setResInfo()
-
-    def getData(self):
-        return {
-            debug_key[ConfigEnum.pad]: self.selectPad,
-            debug_key[ConfigEnum.dialog]: self.selectDialog,
-            debug_key[ConfigEnum.download]: self.selectDownload,
-            debug_key[ConfigEnum.splunk]: self.selectSplunk,
-            debug_key[ConfigEnum.server]: self.indexServerPath,
-        }
 
 
 # ipa打包框
@@ -1277,7 +837,10 @@ class IpaBox(QGroupBox, Ui_ipaBox):
 class ToolsTab(QWidget, Ui_toolsForm):
 
     box_clz = {
-        ToolsItemEnum.check: PackageCheckBox,
+        ToolsItemEnum.packageCheck: PackageCheckBox,
+        ToolsItemEnum.codeCheck: CodeCheckBox,
+        ToolsItemEnum.resCheck: ResCheckBox,
+        ToolsItemEnum.keyRandom: KeyRandomBox,
         ToolsItemEnum.ipa: IpaBox,
         ToolsItemEnum.ips: CrashParseBox,
     }
@@ -1302,174 +865,6 @@ class ToolsTab(QWidget, Ui_toolsForm):
         self.listWidget.setCurrentRow(0)
 
 
-# 项目配置标签
-class ProjectTab(QWidget, Ui_projectForm):
-    common_signal = pyqtSignal(str)
-
-    box_clz = {
-        ProjectItemEnum.debug: DebugBox,
-        ProjectItemEnum.ipa: IpaBox,
-    }
-
-    json_path = WORK_PATH + "/{0}_data.json"
-
-    def __init__(self):
-        super(ProjectTab, self).__init__()
-        self.game = None
-        self.box_handle = {
-            ProjectItemEnum.debug: self.handleDebug,
-            ProjectItemEnum.ipa: self.handleIPA,
-        }
-        self.boxs = []
-        self.model = Model(self.json_path.format(self.game))
-        self.setupUi(self)
-        self.__init_UI()
-        self.__init_data()
-
-    def __init_data(self):
-        self.indexGame = GameEnum(0)
-        data_game = self.model.load()
-        if data_game:
-            self.project_path = data_game['path']
-            self.__set_project_path(self.project_path)
-            for box in self.boxs:
-                data_item = data_game.get(box.getName())
-                box.setData(data_item)
-                box.setPath(self.project_path)
-                box.updateInfo()
-        else:
-            self.project_path = ""
-
-    def __init_UI(self):
-        itemEnum = ProjectItemEnum(1)
-        for name in project_item_titles.values():
-            # item
-            item = ListItem(name)
-            item.setSizeHint(QSize(ITEM_WIDTH, ITEM_HEIGHT))
-            self.listWidget.addItem(item)
-            # box
-            box = self.box_clz[itemEnum](self, name)
-            box.common_signal.connect(self.box_handle[itemEnum])
-            self.boxs.append(box)
-            self.stackedWidget.addWidget(box)
-            itemEnum += 1
-        self.listWidget.currentRowChanged.connect(self.stackedWidget.setCurrentIndex)
-        self.listWidget.setCurrentRow(0)
-        self.btn_setting.clicked.connect(self.__action_event_set_project_path)
-        self.btn_open.clicked.connect(self.__action_event_open_project_path)
-        self.comboBox.currentIndexChanged.connect(self.__action_event_select_game)
-        self.comboBox.setCurrentIndex(0)
-
-    def __action_event_select_game(self, index):
-        self.indexGame = index
-        print(f"{self.indexGame =}")
-
-    def __action_event_set_project_path(self):
-        dir_path = QFileDialog.getExistingDirectory(self, "选择项目文件夹", sys.path[0])
-        if dir_path:
-            def endFunc():
-                self.project_path = dir_path
-                self.textEdit_path.setText(dir_path)
-                for box in self.boxs:
-                    box.setPath(dir_path)
-            self.__check_and_callback(dir_path, endFunc)
-
-    def __action_event_open_project_path(self):
-        self.__check_and_callback(self.project_path, lambda: OpenDir(self.project_path))
-
-    def __check_and_callback(self, path, callback):
-        if CheckProject(path):
-            callback()
-        else:
-            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
-
-    def __set_project_path(self, path):
-        text = path if path and path != "" else ""
-        self.textEdit_path.setText(text)
-
-    def __get_project_path(self):
-        return self.textEdit_path.toPlainText()
-
-    def handleDebug(self, cmd, name, data):
-        config_dir = self.project_path + debug_config_path[self.game]
-        config_lua = config_dir + "selfConfig.lua"
-
-        def saveConfig():
-            self.model.save({name: data, "game": self.game, "path": self.project_path})
-
-            key = debug_key[ConfigEnum.pad]
-            pad = "" if data[key] else "--"
-            key = debug_key[ConfigEnum.dialog]
-            dialog = "" if data[key] else "--"
-            key = debug_key[ConfigEnum.download]
-            download = "--" if data[key] else ""
-            key = debug_key[ConfigEnum.splunk]
-            splunk = "" if data[key] else "--"
-            key = debug_key[ConfigEnum.server]
-            server = ServerUrlEnum(data[key])
-            http_url = server_http_url[server][self.game]
-            report_url = server_report_url[server][self.game]
-            stat_url = server_stat_url[server][self.game]
-            terms_url = server_terms_url[server][self.game]
-
-            with open(config_lua, 'w', encoding='utf-8') as fp:
-                fp.write("Native_path =\n")
-                fp.write("{\n")
-                fp.write("\tsearchPath = {},\n")
-                fp.write("\t{0} = true,\n".format(hotupdate_tag[self.game]))
-                fp.write("\tdbUseFileTag = true,\n")
-                fp.write("\tthemeDevelopIdList = {},\n")
-                fp.write("\t{0}server = \"{1}\"\n".format(download, download_url[self.game]))
-                fp.write("}\n")
-                fp.write("{0}Config.blockWindow = true\n".format(dialog))
-                fp.write("--Config.checkActivityRes = true\n")
-                fp.write("{0}hummer.padTag = true\n".format(pad))
-                fp.write("{0}Config.forceOpenSplunkLog = true\n".format(splunk))
-                if http_url is not None:
-                    fp.write("Config.httpServer = \"{0}\"\n".format(http_url))
-                if report_url is not None:
-                    fp.write("Config.reportURL = \"{0}\"\n".format(report_url))
-                if report_url is not None:
-                    fp.write("Config.statURL = \"{0}\"\n".format(stat_url))
-                if terms_url is not None:
-                    fp.write("Config.termsOfServiceURL = \"{0}\"\n".format(terms_url))
-                fp.write(config_theme)
-
-        def deleteConfig():
-            if os.path.exists(config_lua):
-                os.remove(config_lua)
-                msg = "删除配置文件执行完毕"
-                NotificationWindow.success(PROMPT_TITLE, msg, callback=lambda: LOG.info(msg))
-            else:
-                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.config_lua])
-
-        def openConfigDir():
-            if os.path.exists(config_dir):
-                OpenDir(config_dir)
-            else:
-                NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
-
-        debug_handle = {
-            DebugBoxError.save: saveConfig,
-            DebugBoxError.delete: deleteConfig,
-            DebugBoxError.open: openConfigDir,
-        }
-        self.__check_and_callback(self.project_path, debug_handle[cmd])
-
-    def handleIPA(self, name, data):
-        LOG.info("开始打包ipa")
-
-    def handleJson(self, name, data):
-        LOG.info("开始转换json")
-
-
-    def getGameGroup(self):
-        return self.game
-
-    def getGamePath(self):
-        return self.__get_project_path()
-
-
 # 关于对话框
 class AboutDialog(QDialog, Ui_aboutDialog):
 
@@ -1480,16 +875,6 @@ class AboutDialog(QDialog, Ui_aboutDialog):
 
 # 工具集
 class MogooTools(QMainWindow, Ui_MainWindow):
-    tab_infos = [
-        {
-            "title": "项目配置",
-            "obj": ProjectTab,
-        },
-        {
-            "title": "项目工具",
-            "obj": ToolsTab,
-        }
-    ]
 
     def __init__(self):
         super(MogooTools, self).__init__()
@@ -1508,12 +893,7 @@ class MogooTools(QMainWindow, Ui_MainWindow):
     def __init_UI(self):
         self.openConfigAction.triggered.connect(self.__action_event_open_config)
         self.action_about.triggered.connect(self.__action_event_show_about)
-
-        # for item in self.tab_infos:
-        #     title = item['title']
-        #     self.tabWidget.addTab(item['obj'](), title)
         self.tabWidget.addTab(ToolsTab(), "默认")
-
         self.resize(UI_WIDTH, UI_HEIGHT)
         frame = self.frameGeometry()
         frame.moveCenter(QDesktopWidget().availableGeometry().center())

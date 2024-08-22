@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'packageCheckBox.ui'
+# Form implementation generated from reading ui file 'resCheckBox.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.11
 #
@@ -11,18 +11,18 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 
-class Ui_packageCheckBox(object):
-    def setupUi(self, packageCheckBox):
-        packageCheckBox.setObjectName("packageCheckBox")
-        packageCheckBox.resize(1000, 600)
-        packageCheckBox.setMinimumSize(QtCore.QSize(0, 0))
+class Ui_resCheckBox(object):
+    def setupUi(self, resCheckBox):
+        resCheckBox.setObjectName("resCheckBox")
+        resCheckBox.resize(1000, 600)
+        resCheckBox.setMinimumSize(QtCore.QSize(0, 0))
         font = QtGui.QFont()
         font.setPointSize(12)
-        packageCheckBox.setFont(font)
-        packageCheckBox.setTitle("")
-        self.gridLayout_2 = QtWidgets.QGridLayout(packageCheckBox)
+        resCheckBox.setFont(font)
+        resCheckBox.setTitle("")
+        self.gridLayout_2 = QtWidgets.QGridLayout(resCheckBox)
         self.gridLayout_2.setObjectName("gridLayout_2")
-        self.groupBox = QtWidgets.QGroupBox(packageCheckBox)
+        self.groupBox = QtWidgets.QGroupBox(resCheckBox)
         self.groupBox.setObjectName("groupBox")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.groupBox)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -49,7 +49,7 @@ class Ui_packageCheckBox(object):
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
         self.verticalLayout_2.addWidget(self.scrollArea)
         self.gridLayout_2.addWidget(self.groupBox, 1, 0, 1, 1)
-        self.groupBox_5 = QtWidgets.QGroupBox(packageCheckBox)
+        self.groupBox_5 = QtWidgets.QGroupBox(resCheckBox)
         self.groupBox_5.setMinimumSize(QtCore.QSize(300, 0))
         self.groupBox_5.setMaximumSize(QtCore.QSize(300, 16777215))
         self.groupBox_5.setObjectName("groupBox_5")
@@ -61,7 +61,7 @@ class Ui_packageCheckBox(object):
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_3.addItem(spacerItem)
         self.gridLayout_2.addWidget(self.groupBox_5, 1, 1, 1, 1)
-        self.widget = QtWidgets.QWidget(packageCheckBox)
+        self.widget = QtWidgets.QWidget(resCheckBox)
         self.widget.setMinimumSize(QtCore.QSize(0, 50))
         self.widget.setMaximumSize(QtCore.QSize(16777215, 50))
         self.widget.setObjectName("widget")
@@ -81,17 +81,31 @@ class Ui_packageCheckBox(object):
         self.pushButton = QtWidgets.QPushButton(self.widget)
         self.pushButton.setObjectName("pushButton")
         self.horizontalLayout_2.addWidget(self.pushButton)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_2.addItem(spacerItem1)
+        self.label_3 = QtWidgets.QLabel(self.widget)
+        self.label_3.setObjectName("label_3")
+        self.horizontalLayout_2.addWidget(self.label_3)
+        self.textEdit_2 = QtWidgets.QTextEdit(self.widget)
+        self.textEdit_2.setMinimumSize(QtCore.QSize(0, 25))
+        self.textEdit_2.setMaximumSize(QtCore.QSize(16777215, 25))
+        self.textEdit_2.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.textEdit_2.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.textEdit_2.setObjectName("textEdit_2")
+        self.horizontalLayout_2.addWidget(self.textEdit_2)
         self.gridLayout_2.addWidget(self.widget, 0, 0, 1, 2)
 
-        self.retranslateUi(packageCheckBox)
-        QtCore.QMetaObject.connectSlotsByName(packageCheckBox)
+        self.retranslateUi(resCheckBox)
+        QtCore.QMetaObject.connectSlotsByName(resCheckBox)
 
-    def retranslateUi(self, packageCheckBox):
+    def retranslateUi(self, resCheckBox):
         _translate = QtCore.QCoreApplication.translate
-        packageCheckBox.setWindowTitle(_translate("packageCheckBox", "GroupBox"))
-        self.groupBox.setTitle(_translate("packageCheckBox", "输出结果"))
-        self.groupBox_5.setTitle(_translate("packageCheckBox", "功能列表"))
-        self.btn_check.setText(_translate("packageCheckBox", "开始检测"))
-        self.label_2.setText(_translate("packageCheckBox", "游戏包路径："))
-        self.textEdit.setPlaceholderText(_translate("packageCheckBox", "点击[打开]选择游戏包..."))
-        self.pushButton.setText(_translate("packageCheckBox", "打开"))
+        resCheckBox.setWindowTitle(_translate("resCheckBox", "GroupBox"))
+        self.groupBox.setTitle(_translate("resCheckBox", "输出结果"))
+        self.groupBox_5.setTitle(_translate("resCheckBox", "功能列表"))
+        self.btn_check.setText(_translate("resCheckBox", "开始检测"))
+        self.label_2.setText(_translate("resCheckBox", "资源路径："))
+        self.textEdit.setPlaceholderText(_translate("resCheckBox", "点击[打开]选择资源根目录..."))
+        self.pushButton.setText(_translate("resCheckBox", "打开"))
+        self.label_3.setText(_translate("resCheckBox", "加密key："))
+        self.textEdit_2.setPlaceholderText(_translate("resCheckBox", "填写加密key，长度10个字符"))
