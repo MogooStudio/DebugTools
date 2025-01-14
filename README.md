@@ -64,8 +64,3 @@ pyinstaller -n DebugTools -i ./icon/256.ico --windowed --onefile --clean --nocon
 [![pAi7pJ1.png](https://s21.ax1x.com/2024/08/22/pAi7pJ1.png)](https://imgse.com/i/pAi7pJ1)
 [![pAi7SiR.png](https://s21.ax1x.com/2024/08/22/pAi7SiR.png)](https://imgse.com/i/pAi7SiR)
 
-## 许可
-[MIT License](https://github.com/MogooStudio/MogooPy/blob/master/LICENSE)
-
-## 联系方式 
-- email：dadalepai@163.com  
