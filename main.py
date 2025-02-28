@@ -13,7 +13,7 @@ from PyQt5.QtCore import QSize, pyqtSignal, QUrl, QStandardPaths, QTimer, QRectF
 from PyQt5.QtWidgets import QSpacerItem, QListWidget, QLabel, QGridLayout, QHBoxLayout, QFileDialog, QDialog, \
     QGroupBox, QListWidgetItem, \
     QWidget, QApplication, QMainWindow, \
-    QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy, QTextEdit
+    QMessageBox, QDesktopWidget, QGraphicsDropShadowEffect, QSizePolicy
 from dexparser import AABParser, APKParser
 
 from aboutDialog import Ui_aboutDialog
@@ -105,7 +105,7 @@ PACKAGE_CHECK_WORDS = [
     'inmobi',
 ]
 
-RES_CHECK_WORDS = [
+CODE_CHECK_WORDS = [
     'inmobi',
     'audit',
     'Audit',
@@ -146,6 +146,7 @@ class MessageError(IntEnum):
     not_exist_path = 1
     config_lua = 2
     no_key = 3
+    error_param = 4
 
 
 class MessageWarn(IntEnum):
@@ -181,6 +182,7 @@ message_error = {
     MessageError.config_lua: "配置文件selfConfig不存在",
     MessageError.not_exist_path: "路径不存在",
     MessageError.no_key: "key不存在",
+    MessageError.error_param: "参数错误",
 }
 
 message_warn = {
@@ -554,11 +556,14 @@ class KeyRandomBox(QGroupBox, Ui_keyRandomBox):
             LOG.error(e)
 
     def __action_event_key_random(self):
-        self.result = ""
-        numbers = int(self.lineEdit.text())
+        numbers = self.lineEdit.text()
         mark = self.lineEdit_3.text()
-        letters = int(self.lineEdit_2.text())
-        keys = self.__random_key(mark, letters, numbers)
+        letters = self.lineEdit_2.text()
+        if not numbers or not mark or not letters:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.error_param])
+            return
+        self.result = ""
+        keys = self.__random_key(mark, int(letters), int(numbers))
         for key in keys:
             self.__output_result(key)
 
@@ -616,6 +621,9 @@ class ResCheckBox(QGroupBox, Ui_resCheckBox):
             self.textEdit.setPlainText(path)
 
     def __action_event_check_start(self):
+        if not self.path:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
+            return
         key = self.textEdit_2.toPlainText()
         LOG.info(f"{key =}")
         if not key or key== "" or len(key) != 10:
@@ -657,7 +665,7 @@ class CodeCheckBox(QGroupBox, Ui_codeCheckBox):
         for root, dirs, files in os.walk(self.path.replace("\\", "/")):
             for filename in files:
                 filepath = os.path.join(root, filename)
-                for target_str in RES_CHECK_WORDS:
+                for target_str in CODE_CHECK_WORDS:
                     if filepath.find(target_str) >= 0:
                         result.append(filename)
                         self.__output_result(f"包含敏感词的文件:{filepath} | 铭感词:{target_str}")
@@ -680,12 +688,15 @@ class CodeCheckBox(QGroupBox, Ui_codeCheckBox):
 
     def __action_event_select_src(self):
         path = QFileDialog.getExistingDirectory(self, "选取项目文件夹", self.path or sys.path[0])
-        LOG.info(f"{self.path =}")
+        LOG.info(f"{path =}")
         if path:
             self.path = path
             self.textEdit.setPlainText(path)
 
     def __action_event_check_start(self):
+        if not self.path:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
+            return
         if self.is_running:
             NotificationWindow.warning(WARN_TITLE, message_warn[MessageWarn.check_running])
             return
@@ -755,13 +766,16 @@ class PackageCheckBox(QGroupBox, Ui_packageCheckBox):
 
     def __action_event_select_package(self):
         filepath, filetype = QFileDialog.getOpenFileName(self, '打开文件', "", 'APK (*.apk);;AAB (*.aab)')
-        LOG.info(f"{self.path =}{self.is_bundle =}")
+        LOG.info(f"{filepath =} {self.is_bundle =}")
         if filepath:
             self.path = filepath
             self.textEdit.setPlainText(filepath)
             self.is_bundle = (filetype and filetype.find('APK') != 0)
 
     def __action_event_check_start(self):
+        if not self.path:
+            NotificationWindow.error(ERROR_TITLE, message_error[MessageError.not_exist_path])
+            return
         if self.is_running:
             NotificationWindow.warning(WARN_TITLE, message_warn[MessageWarn.check_running])
             return
